@@ -1,0 +1,3 @@
+[submodule "libmcb"]
+	path = libmcb
+	url = https://github.com/at2er/libmcb

@@ -4,12 +4,12 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include "compiler.h"
 #include "darr.h"
 #include "err.h"
 #include "ealloc.h"
 #include "ident.h"
 #include "macros.h"
-#include "panic.h"
 #include "parser.h"
 #include "sclexer.h"
 #include "type.h"
@@ -153,7 +153,8 @@ parse_expr(struct zako_fn_definition *fn, struct parser *parser)
 	if (!literal)
 		return NULL;
 	expr = ecalloc(1, sizeof(*expr));
-	darr_append(expr->args, expr->argc, literal);
+	expr->kind = PRIMARY_EXPR;
+	expr->inner.primary = literal;
 	return expr;
 }
 
@@ -425,9 +426,11 @@ free_zako_expr(struct zako_expr *self)
 {
 	if (!self)
 		return;
-	for (int i = 0; i < self->argc; i++)
-		free_zako_literal(self->args[i]);
-	free(self->args);
+	switch (self->kind) {
+	case PRIMARY_EXPR:
+		free_zako_literal(self->inner.primary);
+		break;
+	}
 	free(self);
 }
 
@@ -507,7 +510,7 @@ parse_file(const char *path)
 	char *src;
 	struct zako_toplevel_stmt *stmt;
 	struct zako_toplevel_stmt **stmts = NULL;
-	size_t stmts_count;
+	size_t stmts_count = 0;
 	assert(path);
 
 	mod = ecalloc(1, sizeof(*mod));
@@ -549,10 +552,15 @@ parse_file(const char *path)
 		}
 	}
 end:
+	if (compile_file(stmts, stmts_count, mod))
+		goto err_compile_file;
 	free(src);
 	return mod;
 err_unknown_token:
 	print_err("unkown token", cur);
+	goto err_free_all;
+err_compile_file:
+	printf_err_msg("compile file '%s'", path);
 err_free_all:
 	free(src);
 	free(mod);

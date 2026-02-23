@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef CZAKOC_PARSER_H
 #define CZAKOC_PARSER_H
+#include <stddef.h>
 #include <stdint.h>
 #include "fn.h"
 #include "module.h"
@@ -31,8 +32,12 @@ struct zako_definition {
 
 struct zako_expr {
 	// enum EXPR_OPERATOR operator;
-	int argc;
-	struct zako_literal **args;
+	enum EXPR_KIND {
+		PRIMARY_EXPR
+	} kind;
+	union {
+		struct zako_literal *primary;
+	} inner;
 };
 
 struct zako_fn_declaration {
