@@ -51,6 +51,8 @@ struct zako_expr {
 		struct zako_binary_expr binary;
 		struct zako_literal *primary;
 	} inner;
+
+	struct zako_type *type;
 };
 
 struct zako_fn_declaration {
@@ -73,6 +75,8 @@ struct zako_literal {
 		int64_t  i;
 		uint64_t u;
 	} data;
+
+	struct zako_type *type;
 };
 
 struct zako_return_stmt {

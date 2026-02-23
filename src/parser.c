@@ -10,12 +10,15 @@
 #include "err.h"
 #include "ealloc.h"
 #include "ident.h"
-#include "jim2.h" /* thanks you tsoding :) */
+#include "jim2.h"
 #include "macros.h"
 #include "panic.h"
 #include "parser.h"
 #include "sclexer.h"
+#include "semantics.h"
 #include "type.h"
+
+#define JIM_PP 2
 
 enum KEYWORD {
 	KEYWORD_FN,
@@ -418,7 +421,15 @@ parse_return_stmt(struct zako_fn_definition *fn, struct parser *parser)
 	stmt->kind = RETURN_STMT;
 	stmt->inner.return_stmt = self = ecalloc(1, sizeof(*self));
 	self->expr = parse_expr(fn, parser);
+	if (!self->expr)
+		goto err_free_stmt;
+	if (analyse_expr(self->expr, fn->declaration->ident
+				->type->inner.fn.type))
+		goto err_free_stmt;
 	return stmt;
+err_free_stmt:
+	free_zako_stmt(stmt);
+	return NULL;
 }
 
 struct zako_stmt *
@@ -435,12 +446,8 @@ parse_stmt(
 		return parse_return_stmt(fn, parser);
 		break;
 	default:
-		goto err_unexpected_keyword;
 		break;
 	}
-	assert(0);
-	return NULL;
-err_unexpected_keyword:
 	printf_err("unexpected keyword '%s'", tok, keywords[tok->data.keyword]);
 	return NULL;
 }
@@ -521,7 +528,7 @@ print_ast_by_jim(
 		struct zako_toplevel_stmt **stmts,
 		size_t stmts_count)
 {
-	Jim jim = {.pp = 4};
+	Jim jim = {.pp = JIM_PP};
 	jim_array_begin(&jim);
 	for (size_t i = 0; i < stmts_count; i++)
 		print_toplevel_stmt(stmts[i], &jim);
@@ -687,7 +694,7 @@ err_free_all:
 void
 print_expr(struct zako_expr *self, Jim *jim)
 {
-	Jim fallback = {.pp = 4};
+	Jim fallback = {.pp = JIM_PP};
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);
@@ -708,22 +715,26 @@ print_expr(struct zako_expr *self, Jim *jim)
 		print_literal(self->inner.primary, jim);
 		break;
 	}
+	jim_member_key(jim, "type");
+	print_type(self->type, jim);
 	jim_object_end(jim);
 }
 
 void
 print_fn_definition(struct zako_fn_definition *self, Jim *jim)
 {
-	Jim fallback = {.pp = 4};
+	Jim fallback = {.pp = JIM_PP};
 	struct zako_fn_type *fn_type;
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);
 	jim_member_key(jim, "kind");
 	jim_string(jim, "function definition");
+	fn_type = &self->declaration->ident->type->inner.fn;
+	jim_member_key(jim, "type");
+	print_type(fn_type->type, jim);
 	jim_member_key(jim, "args");
 	jim_array_begin(jim);
-	fn_type = &self->declaration->ident->type->inner.fn;
 	for (int i = 0; i < fn_type->argc; i++)
 		print_ident(fn_type->args[i], jim);
 	jim_array_end(jim);
@@ -738,7 +749,7 @@ print_fn_definition(struct zako_fn_definition *self, Jim *jim)
 void
 print_ident(struct zako_ident *self, Jim *jim)
 {
-	Jim fallback = {.pp = 4};
+	Jim fallback = {.pp = JIM_PP};
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);
@@ -754,7 +765,7 @@ print_ident(struct zako_ident *self, Jim *jim)
 void
 print_literal(struct zako_literal *self, Jim *jim)
 {
-	Jim fallback = {.pp = 4};
+	Jim fallback = {.pp = JIM_PP};
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);
@@ -770,13 +781,15 @@ print_literal(struct zako_literal *self, Jim *jim)
 		jim_integer(jim, self->data.i);
 		break;
 	}
+	jim_member_key(jim, "type");
+	print_type(self->type, jim);
 	jim_object_end(jim);
 }
 
 void
 print_stmt(struct zako_stmt *self, Jim *jim)
 {
-	Jim fallback = {.pp = 4};
+	Jim fallback = {.pp = JIM_PP};
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);
@@ -794,7 +807,7 @@ print_stmt(struct zako_stmt *self, Jim *jim)
 void
 print_toplevel_stmt(struct zako_toplevel_stmt *self, Jim *jim)
 {
-	Jim fallback = {.pp = 4};
+	Jim fallback = {.pp = JIM_PP};
 	if (!jim)
 		jim = &fallback;
 	switch (self->kind) {
@@ -816,7 +829,7 @@ print_toplevel_stmt(struct zako_toplevel_stmt *self, Jim *jim)
 void
 print_type(struct zako_type *self, Jim *jim)
 {
-	Jim fallback = {.pp = 4};
+	Jim fallback = {.pp = JIM_PP};
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);

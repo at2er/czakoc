@@ -12,6 +12,8 @@
 #include <stddef.h>
 #include <stdio.h>
 #include "compiler.h"
+#define UTILSH_CONTAINER_OF_STRIP
+#include "container_of.h"
 #include "darr.h"
 #include "ident.h"
 #include "panic.h"
@@ -58,11 +60,13 @@ compile_binary_expr(
 		struct zako_binary_expr *binary,
 		struct compiler_context *ctx)
 {
+	struct zako_expr *expr;
 	struct mcb_value *result, *rem, *lhs, *rhs;
 	assert(binary && ctx);
+	expr = container_of(binary, struct zako_expr, inner.binary);
 	result = mcb_define_value(
 			"binary_expr_result",
-			MCB_I32,
+			mcb_type_from_zako(expr->type),
 			ctx->fn);
 	lhs = compile_literal(binary->lhs, ctx);
 	rhs = compile_literal(binary->rhs, ctx);
@@ -177,7 +181,10 @@ compile_literal(struct zako_literal *literal, struct compiler_context *ctx)
 	case EXPR_LITERAL:
 		return compile_expr(literal->data.expr, ctx);
 	case INT_LITERAL:
-		value = mcb_define_value("_", MCB_I32, ctx->fn);
+		value = mcb_define_value(
+				"_",
+				mcb_type_from_zako(literal->type),
+				ctx->fn);
 		if (!value)
 			panic("mcb_define_value()");
 		if (mcb_inst_store_int(value, literal->data.i, ctx->fn))
@@ -196,7 +203,7 @@ compile_primary_expr(
 	assert(primary && ctx);
 	result = mcb_define_value(
 			"primary_expr_result",
-			MCB_I32,
+			mcb_type_from_zako(primary->type),
 			ctx->fn);
 	if (mcb_inst_store_int(result, primary->data.i, ctx->fn))
 		panic("mcb_inst_store_int()");
