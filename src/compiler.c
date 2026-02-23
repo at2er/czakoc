@@ -2,8 +2,12 @@
 #include <assert.h>
 #include <mcb/context.h>
 #include <mcb/func.h>
+#include <mcb/inst/add.h>
+#include <mcb/inst/div.h>
+#include <mcb/inst/mul.h>
 #include <mcb/inst/ret.h>
 #include <mcb/inst/store.h>
+#include <mcb/inst/sub.h>
 #include <mcb/target/gnu_asm.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -20,6 +24,9 @@ struct compiler_context {
 	struct zako_module *mod;
 };
 
+static struct mcb_value *compile_binary_expr(
+		struct zako_binary_expr *binary,
+		struct compiler_context *ctx);
 static int compile_definition_stmt(
 		struct zako_definition *definition,
 		struct compiler_context *ctx);
@@ -28,6 +35,12 @@ static struct mcb_value *compile_expr(
 		struct compiler_context *ctx);
 static int compile_fn_definition(
 		struct zako_fn_definition *definition,
+		struct compiler_context *ctx);
+static struct mcb_value *compile_literal(
+		struct zako_literal *literal,
+		struct compiler_context *ctx);
+static struct mcb_value *compile_primary_expr(
+		struct zako_literal *primary,
 		struct compiler_context *ctx);
 static int compile_return_stmt(
 		struct zako_return_stmt *stmt,
@@ -39,6 +52,44 @@ static int compile_toplevel_stmt(
 		struct zako_toplevel_stmt *stmt,
 		struct compiler_context *ctx);
 static enum MCB_TYPE mcb_type_from_zako(struct zako_type *type);
+
+struct mcb_value *
+compile_binary_expr(
+		struct zako_binary_expr *binary,
+		struct compiler_context *ctx)
+{
+	struct mcb_value *result, *rem, *lhs, *rhs;
+	assert(binary && ctx);
+	result = mcb_define_value(
+			"binary_expr_result",
+			MCB_I32,
+			ctx->fn);
+	lhs = compile_literal(binary->lhs, ctx);
+	rhs = compile_literal(binary->rhs, ctx);
+	switch (binary->op) {
+	case SYM_INFIX_ADD:
+		if (mcb_inst_add(result, lhs, rhs, ctx->fn))
+			panic("mcb_inst_add()");
+		break;
+	case SYM_INFIX_DIV:
+		rem = mcb_define_value("_rem_", result->type, ctx->fn);
+		if (mcb_inst_div(result, rem, lhs, rhs, ctx->fn))
+			panic("mcb_inst_div()");
+		break;
+	case SYM_INFIX_MUL:
+		if (mcb_inst_mul(result, lhs, rhs, ctx->fn))
+			panic("mcb_inst_mul()");
+		break;
+	case SYM_INFIX_SUB:
+		if (mcb_inst_sub(result, lhs, rhs, ctx->fn))
+			panic("mcb_inst_sub()");
+		break;
+	default:
+		panic("binary->op not infix");
+		break;
+	}
+	return result;
+}
 
 int
 compile_definition_stmt(
@@ -58,22 +109,14 @@ compile_definition_stmt(
 struct mcb_value *
 compile_expr(struct zako_expr *expr, struct compiler_context *ctx)
 {
-	struct mcb_value *result;
 	assert(expr && ctx);
 	switch (expr->kind) {
+	case BINARY_EXPR:
+		return compile_binary_expr(&expr->inner.binary, ctx);
 	case PRIMARY_EXPR:
-		result = mcb_define_value(
-				"primary_expr_result",
-				MCB_I32,
-				ctx->fn);
-		if (mcb_inst_store_int(
-				result,
-				expr->inner.primary->data.i,
-				ctx->fn))
-			panic("mcb_inst_store_int()");
-		break;
+		return compile_primary_expr(expr->inner.primary, ctx);
 	}
-	return result;
+	return NULL;
 }
 
 int
@@ -124,6 +167,40 @@ err_free_mcb_fn_args:
 	if (mcb_fn_args)
 		free(mcb_fn_args);
 	return 1;
+}
+
+struct mcb_value *
+compile_literal(struct zako_literal *literal, struct compiler_context *ctx)
+{
+	struct mcb_value *value;
+	switch (literal->kind) {
+	case EXPR_LITERAL:
+		return compile_expr(literal->data.expr, ctx);
+	case INT_LITERAL:
+		value = mcb_define_value("_", MCB_I32, ctx->fn);
+		if (!value)
+			panic("mcb_define_value()");
+		if (mcb_inst_store_int(value, literal->data.i, ctx->fn))
+			panic("mcb_inst_store_int()");
+		break;
+	}
+	return value;
+}
+
+struct mcb_value *
+compile_primary_expr(
+		struct zako_literal *primary,
+		struct compiler_context *ctx)
+{
+	struct mcb_value *result;
+	assert(primary && ctx);
+	result = mcb_define_value(
+			"primary_expr_result",
+			MCB_I32,
+			ctx->fn);
+	if (mcb_inst_store_int(result, primary->data.i, ctx->fn))
+		panic("mcb_inst_store_int()");
+	return result;
 }
 
 int

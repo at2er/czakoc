@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-// #include "compiler.h"
+#include "czakoc.h"
 #include "err.h"
 #define GETARG_IMPL
 #include "getarg.h"
@@ -7,13 +7,25 @@
 
 static int parse_cmdline_args(int argc, char *argv[]);
 
+uint64_t czakoc_flags = 0;
+
 static const char *entry_file = NULL;
 static const char *usages[] = {
 "Usage: czakoc [OPTIONS]... <FILE>",
+"",
+"      --output-ast:           output AST to stdout",
+"      --output-lexer-tokens:  output tokens from lexer to stdout",
+"  -h, --help:                 show usages",
 NULL
 };
 static struct option options[] = {
-	OPT_HELP("--help", 'h', usages),
+	OPT_FLAG("output-ast", NO_SHORT_NAME,
+			&czakoc_flags,
+			CZAKOC_OUTPUT_AST),
+	OPT_FLAG("output-lexer-tokens", NO_SHORT_NAME,
+			&czakoc_flags,
+			CZAKOC_OUTPUT_LEXER_TOKENS),
+	OPT_HELP("help", 'h', usages),
 	OPT_END
 };
 

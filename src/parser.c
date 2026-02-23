@@ -5,11 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "compiler.h"
+#include "czakoc.h"
 #include "darr.h"
 #include "err.h"
 #include "ealloc.h"
 #include "ident.h"
+#include "jim2.h" /* thanks you tsoding :) */
 #include "macros.h"
+#include "panic.h"
 #include "parser.h"
 #include "sclexer.h"
 #include "type.h"
@@ -21,13 +24,6 @@ enum KEYWORD {
 
 	KEYWORD_I8, KEYWORD_I16, KEYWORD_I32, KEYWORD_I64,
 	KEYWORD_U8, KEYWORD_U16, KEYWORD_U32, KEYWORD_U64
-};
-
-enum SYMBOL {
-	SYM_PAREN_L,
-	SYM_PAREN_R,
-	SYM_ASSIGN,
-	SYM_COMMA
 };
 
 struct parser {
@@ -42,6 +38,10 @@ static void destory_zako_declaration(struct zako_declaration *self);
 static void destory_zako_definition(struct zako_definition *self);
 static char *dup_slice_to_cstr(struct sclexer_str_slice *slice);
 static struct sclexer_tok *eat_tok(struct parser *parser);
+static int get_expr_op_binding_power(enum ZAKO_SYMBOL sym);
+static struct zako_expr *merge_expr(
+		struct zako_expr *origin,
+		struct zako_expr *append);
 static struct zako_expr *parse_expr(
 		struct zako_fn_definition *fn,
 		struct parser *parser);
@@ -72,7 +72,11 @@ static struct zako_toplevel_stmt *parse_toplevel_stmt(
 		struct sclexer_tok *tok,
 		struct parser *parser);
 static struct zako_type *parse_type(struct parser *parser);
+static enum ZAKO_SYMBOL peek_expr_op(struct sclexer_tok *tok);
 static struct sclexer_tok *peek_tok(struct parser *parser);
+static void print_ast_by_jim(
+		struct zako_toplevel_stmt **stmts,
+		size_t stmts_count);
 
 static const char *comments[1] = {";"};
 static const char *keywords[] = {
@@ -90,10 +94,14 @@ static const char *keywords[] = {
 	[KEYWORD_U64] = "u64"
 };
 static const char *symbols[] = {
-	[SYM_PAREN_L] = "(",
-	[SYM_PAREN_R] = ")",
-	[SYM_ASSIGN]  = "=",
-	[SYM_COMMA]   = ","
+	[SYM_PAREN_L]   = "(",
+	[SYM_PAREN_R]   = ")",
+	[SYM_ASSIGN]    = "=",
+	[SYM_COMMA]     = ",",
+	[SYM_INFIX_ADD] = "+",
+	[SYM_INFIX_DIV] = "/",
+	[SYM_INFIX_MUL] = "*",
+	[SYM_INFIX_SUB] = "-"
 };
 
 void
@@ -143,11 +151,60 @@ eat_tok(struct parser *parser)
 	return &parser->tokens[parser->cur_tok - 1];
 }
 
+int
+get_expr_op_binding_power(enum ZAKO_SYMBOL sym)
+{
+	switch (sym) {
+	case SYM_INFIX_ADD:
+	case SYM_INFIX_SUB:
+		return 0;
+	case SYM_INFIX_DIV:
+	case SYM_INFIX_MUL:
+		return 1;
+	default:
+		break;
+	}
+	panic("get_expr_op_binding_power()");
+	return -1;
+}
+
+struct zako_expr *
+merge_expr(struct zako_expr *origin, struct zako_expr *append)
+{
+	struct zako_binary_expr *orig_binary, *append_binary;
+	int orig_power, append_power;
+
+	assert(origin && append);
+	assert(origin->kind == BINARY_EXPR);
+	assert(append->kind == BINARY_EXPR);
+
+	orig_binary   = &origin->inner.binary;
+	orig_power    = get_expr_op_binding_power(orig_binary->op);
+	append_binary = &append->inner.binary;
+	append_power  = get_expr_op_binding_power(append_binary->op);
+
+	if (orig_power >= append_power) {
+		append_binary->lhs = ecalloc(1, sizeof(*append_binary->lhs));
+		append_binary->lhs->kind = EXPR_LITERAL;
+		append_binary->lhs->data.expr = origin;
+		return append;
+	} else {
+		append_binary->lhs = orig_binary->rhs;
+		orig_binary->rhs = ecalloc(1, sizeof(*orig_binary->rhs));
+		orig_binary->rhs->kind = EXPR_LITERAL;
+		orig_binary->rhs->data.expr = append;
+		return origin;
+	}
+	return origin;
+}
+
 struct zako_expr *
 parse_expr(struct zako_fn_definition *fn, struct parser *parser)
 {
-	struct zako_expr *expr;
+	struct zako_expr *expr, *append_expr;
 	struct zako_literal *literal;
+	enum ZAKO_SYMBOL op = 0;
+	struct sclexer_tok *tok;
 	assert(fn && parser);
 	literal = parse_literal(fn, parser);
 	if (!literal)
@@ -155,6 +212,23 @@ parse_expr(struct zako_fn_definition *fn, struct parser *parser)
 	expr = ecalloc(1, sizeof(*expr));
 	expr->kind = PRIMARY_EXPR;
 	expr->inner.primary = literal;
+	tok = peek_tok(parser);
+	while ((op = peek_expr_op(tok)) != 0) {
+		eat_tok(parser);
+		append_expr = ecalloc(1, sizeof(*append_expr));
+		append_expr->kind = BINARY_EXPR;
+		append_expr->inner.binary.op = op;
+		append_expr->inner.binary.rhs = parse_literal(fn, parser);
+		if (expr->kind == PRIMARY_EXPR) {
+			append_expr->inner.binary.lhs = literal;
+			free(expr);
+			expr = append_expr;
+		} else {
+			expr = merge_expr(expr, append_expr);
+		}
+		tok = peek_tok(parser);
+	}
+
 	return expr;
 }
 
@@ -280,6 +354,15 @@ parse_fn_sign(struct zako_fn_type *type, struct parser *parser)
 		darr_append(type->args, type->argc, arg);
 		tok = peek_tok(parser);
 	}
+	if (tok->kind != SCLEXER_SYMBOL)
+		goto err_unexpected_token;
+	if (tok->data.symbol != SYM_PAREN_R)
+		goto err_unexpected_symbol;
+	eat_tok(parser);
+	tok = peek_tok(parser);
+	type->type = parse_type(parser);
+	if (!type->type)
+		goto err_free_args;
 	return 0;
 err_unexpected_symbol:
 	printf_err("unexpected symbol '%s'", tok, symbols[tok->data.symbol]);
@@ -347,7 +430,7 @@ parse_stmt(
 	assert(tok && fn && parser);
 	if (tok->kind != SCLEXER_KEYWORD)
 		return NULL; /* expression statement */
-	switch ((enum KEYWORD)tok->data.keyword) {
+	switch (tok->data.keyword) {
 	case KEYWORD_RETURN:
 		return parse_return_stmt(fn, parser);
 		break;
@@ -411,6 +494,18 @@ err_free_type:
 	return NULL;
 }
 
+enum ZAKO_SYMBOL
+peek_expr_op(struct sclexer_tok *tok)
+{
+	if (tok->kind != SCLEXER_SYMBOL)
+		return 0;
+	if (tok->data.symbol < SYM_INFIX_ADD)
+		return 0;
+	if (tok->data.symbol > SYM_INFIX_SUB)
+		return 0;
+	return tok->data.symbol;
+}
+
 struct sclexer_tok *
 peek_tok(struct parser *parser)
 {
@@ -422,11 +517,29 @@ peek_tok(struct parser *parser)
 }
 
 void
+print_ast_by_jim(
+		struct zako_toplevel_stmt **stmts,
+		size_t stmts_count)
+{
+	Jim jim = {.pp = 4};
+	jim_array_begin(&jim);
+	for (size_t i = 0; i < stmts_count; i++)
+		print_toplevel_stmt(stmts[i], &jim);
+	jim_array_end(&jim);
+	fwrite(jim.sink, jim.sink_count, 1, stdout);
+	fwrite("\n", sizeof(char), 1, stdout);
+}
+
+void
 free_zako_expr(struct zako_expr *self)
 {
 	if (!self)
 		return;
 	switch (self->kind) {
+	case BINARY_EXPR:
+		free_zako_literal(self->inner.binary.lhs);
+		free_zako_literal(self->inner.binary.rhs);
+		break;
 	case PRIMARY_EXPR:
 		free_zako_literal(self->inner.primary);
 		break;
@@ -528,8 +641,10 @@ parse_file(const char *path)
 	sclexer_init(&lexer, path);
 
 	parser.tokens_count = sclexer_get_tokens(&lexer, &parser.tokens);
-	for (size_t i = 0; i < parser.tokens_count; i++)
-		sclexer_print_tok(&lexer, &parser.tokens[i]);
+	if (czakoc_flags & CZAKOC_OUTPUT_LEXER_TOKENS) {
+		for (size_t i = 0; i < parser.tokens_count; i++)
+			sclexer_print_tok(&lexer, &parser.tokens[i]);
+	}
 
 	while (parser.cur_tok < parser.tokens_count) {
 		cur = eat_tok(&parser);
@@ -552,6 +667,8 @@ parse_file(const char *path)
 		}
 	}
 end:
+	if (czakoc_flags & CZAKOC_OUTPUT_AST)
+		print_ast_by_jim(stmts, stmts_count);
 	if (compile_file(stmts, stmts_count, mod))
 		goto err_compile_file;
 	free(src);
@@ -565,4 +682,151 @@ err_free_all:
 	free(src);
 	free(mod);
 	return NULL;
+}
+
+void
+print_expr(struct zako_expr *self, Jim *jim)
+{
+	Jim fallback = {.pp = 4};
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	switch (self->kind) {
+	case BINARY_EXPR:
+		jim_string(jim, "binary");
+		jim_member_key(jim, "op");
+		jim_string(jim, symbols[self->inner.binary.op]);
+		jim_member_key(jim, "lhs");
+		print_literal(self->inner.binary.lhs, jim);
+		jim_member_key(jim, "rhs");
+		print_literal(self->inner.binary.rhs, jim);
+		break;
+	case PRIMARY_EXPR:
+		jim_string(jim, "primary");
+		jim_member_key(jim, "literal");
+		print_literal(self->inner.primary, jim);
+		break;
+	}
+	jim_object_end(jim);
+}
+
+void
+print_fn_definition(struct zako_fn_definition *self, Jim *jim)
+{
+	Jim fallback = {.pp = 4};
+	struct zako_fn_type *fn_type;
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	jim_string(jim, "function definition");
+	jim_member_key(jim, "args");
+	jim_array_begin(jim);
+	fn_type = &self->declaration->ident->type->inner.fn;
+	for (int i = 0; i < fn_type->argc; i++)
+		print_ident(fn_type->args[i], jim);
+	jim_array_end(jim);
+	jim_member_key(jim, "statements");
+	jim_array_begin(jim);
+	for (size_t i = 0; i < self->stmts_count; i++)
+		print_stmt(self->stmts[i], jim);
+	jim_array_end(jim);
+	jim_object_end(jim);
+}
+
+void
+print_ident(struct zako_ident *self, Jim *jim)
+{
+	Jim fallback = {.pp = 4};
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	jim_string(jim, "identifier");
+	jim_member_key(jim, "name");
+	jim_string(jim, self->name);
+	jim_member_key(jim, "type");
+	print_type(self->type, jim);
+	jim_object_end(jim);
+}
+
+void
+print_literal(struct zako_literal *self, Jim *jim)
+{
+	Jim fallback = {.pp = 4};
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	switch (self->kind) {
+	case EXPR_LITERAL:
+		jim_string(jim, "expr literal");
+		print_expr(self->data.expr, jim);
+		break;
+	case INT_LITERAL:
+		jim_string(jim, "int literal");
+		jim_member_key(jim, "int");
+		jim_integer(jim, self->data.i);
+		break;
+	}
+	jim_object_end(jim);
+}
+
+void
+print_stmt(struct zako_stmt *self, Jim *jim)
+{
+	Jim fallback = {.pp = 4};
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	switch (self->kind) {
+	case RETURN_STMT:
+		jim_string(jim, "return");
+		jim_member_key(jim, "expr");
+		print_expr(self->inner.return_stmt->expr, jim);
+		break;
+	}
+	jim_object_end(jim);
+}
+
+void
+print_toplevel_stmt(struct zako_toplevel_stmt *self, Jim *jim)
+{
+	Jim fallback = {.pp = 4};
+	if (!jim)
+		jim = &fallback;
+	switch (self->kind) {
+	case DECLARATION_STMT:
+		return;
+	case DEFINITION_STMT:
+		switch (self->inner.definition.kind) {
+		case FN_DEFINITION:
+			print_fn_definition(
+					self->inner.definition.inner
+					.fn_defintion,
+					jim);
+			break;
+		}
+		break;
+	}
+}
+
+void
+print_type(struct zako_type *self, Jim *jim)
+{
+	Jim fallback = {.pp = 4};
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	jim_string(jim, "type");
+	jim_member_key(jim, "builtin");
+	if (self->builtin <= U64_TYPE) {
+		jim_string(jim, keywords[KEYWORD_I8 + self->builtin]);
+	} else if (self->builtin == FN_TYPE) {
+		jim_string(jim, "function");
+	}
+	jim_object_end(jim);
 }

@@ -6,5 +6,5 @@
 ; 	let fn_ptr fn(x i32) i32 = f
 ; 	return a
 
-main fn i32 =
-	return 1
+main fn(argc i32) i32 =
+	return 1 + 2 * 3
