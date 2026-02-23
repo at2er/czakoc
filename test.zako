@@ -1,0 +1,10 @@
+; f fn(x i32) i32 =
+;	return x
+
+; main fn(argc i32, argv [*char]) i32 =
+; 	let a i32 = 114
+; 	let fn_ptr fn(x i32) i32 = f
+; 	return a
+
+main fn i32 =
+	return 1
