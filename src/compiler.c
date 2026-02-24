@@ -181,15 +181,8 @@ compile_primary_expr(
 		struct zako_literal *primary,
 		struct compiler_context *ctx)
 {
-	struct mcb_value *result;
 	assert(primary && ctx);
-	result = mcb_define_value(
-			"primary_expr_result",
-			mcb_type_from_zako(primary->type),
-			ctx->fn);
-	if (mcb_inst_store_int(result, primary->data.i, ctx->fn))
-		panic("mcb_inst_store_int()");
-	return result;
+	return compile_literal(primary, ctx);
 }
 
 int

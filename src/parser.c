@@ -39,13 +39,15 @@ struct parser {
 
 static char *dup_slice_to_cstr(struct sclexer_str_slice *slice);
 static struct sclexer_tok *eat_tok(struct parser *parser);
+static struct sclexer_tok *eat_tok_skip_white(struct parser *parser);
 static int get_expr_op_binding_power(enum ZAKO_SYMBOL sym);
 static struct zako_expr *merge_expr(
 		struct zako_expr *origin,
 		struct zako_expr *append);
 static struct zako_expr *parse_expr(
 		struct zako_fn_definition *fn,
-		struct parser *parser);
+		struct parser *parser,
+		bool in_paren);
 static struct zako_fn_definition *parse_fn_body(
 		struct zako_fn_declaration *declaration,
 		struct parser *parser);
@@ -75,7 +77,10 @@ static struct zako_toplevel_stmt *parse_toplevel_stmt(
 		struct sclexer_tok *tok,
 		struct parser *parser);
 static struct zako_type *parse_type(struct parser *parser);
-static enum ZAKO_SYMBOL peek_expr_op(struct sclexer_tok *tok);
+static enum ZAKO_SYMBOL peek_expr_op(
+		struct sclexer_tok *tok,
+		struct parser *parser,
+		bool in_paren);
 static struct sclexer_tok *peek_tok(struct parser *parser);
 static void print_ast_by_jim(
 		struct zako_toplevel_stmt **stmts,
@@ -125,9 +130,23 @@ eat_tok(struct parser *parser)
 		return NULL;
 	parser->cur_tok++;
 	assert(parser->tokens);
-	if (parser->tokens[parser->cur_tok - 1].kind == SCLEXER_EOL)
-		return eat_tok(parser);
 	return &parser->tokens[parser->cur_tok - 1];
+}
+
+struct sclexer_tok *
+eat_tok_skip_white(struct parser *parser)
+{
+	struct sclexer_tok *tok;
+	assert(parser);
+	tok = eat_tok(parser);
+	if (!tok)
+		return NULL;
+	while (tok->kind == SCLEXER_EOL) {
+		tok = eat_tok(parser);
+		if (!tok)
+			return NULL;
+	}
+	return tok;
 }
 
 int
@@ -177,7 +196,7 @@ merge_expr(struct zako_expr *origin, struct zako_expr *append)
 }
 
 struct zako_expr *
-parse_expr(struct zako_fn_definition *fn, struct parser *parser)
+parse_expr(struct zako_fn_definition *fn, struct parser *parser, bool in_paren)
 {
 	struct zako_expr *expr, *append_expr;
 	struct zako_literal *literal;
@@ -191,7 +210,7 @@ parse_expr(struct zako_fn_definition *fn, struct parser *parser)
 	expr->kind = PRIMARY_EXPR;
 	expr->inner.primary = literal;
 	tok = peek_tok(parser);
-	while ((op = peek_expr_op(tok)) != 0) {
+	while ((op = peek_expr_op(tok, parser, in_paren)) != 0) {
 		eat_tok(parser);
 		append_expr = ecalloc(1, sizeof(*append_expr));
 		append_expr->kind = BINARY_EXPR;
@@ -222,7 +241,7 @@ parse_fn_body(struct zako_fn_declaration *declaration, struct parser *parser)
 	definition->declaration = declaration;
 
 	eat_tok(parser);
-	tok = eat_tok(parser);
+	tok = eat_tok_skip_white(parser);
 	if (tok->kind == SCLEXER_EOL) {
 		tok = eat_tok(parser);
 	} else if (tok->kind != SCLEXER_INDENT_BLOCK_BEGIN) {
@@ -230,18 +249,18 @@ parse_fn_body(struct zako_fn_declaration *declaration, struct parser *parser)
 		if (!stmt)
 			goto err_free_definition;
 		darr_append(definition->stmts, definition->stmts_count, stmt);
-		tok = eat_tok(parser);
+		tok = eat_tok_skip_white(parser);
 	}
 
 	if (tok->kind != SCLEXER_INDENT_BLOCK_BEGIN)
 		goto err_unexpected_token;
-	tok = eat_tok(parser);
+	tok = eat_tok_skip_white(parser);
 	while (tok->kind != SCLEXER_INDENT_BLOCK_END) {
 		stmt = parse_stmt(tok, definition, parser);
 		if (!stmt)
 			goto err_free_definition;
 		darr_append(definition->stmts, definition->stmts_count, stmt);
-		tok = eat_tok(parser);
+		tok = eat_tok_skip_white(parser);
 	}
 	return definition;
 err_unexpected_token:
@@ -379,12 +398,28 @@ parse_literal(struct zako_fn_definition *fn, struct parser *parser)
 	struct sclexer_tok *tok;
 	assert(fn && parser);
 	tok = eat_tok(parser);
-	if (tok->kind != SCLEXER_INT && tok->kind != SCLEXER_INT_NEG)
-		return NULL;
 	literal = ecalloc(1, sizeof(literal));
+	if (tok->kind == SCLEXER_SYMBOL && tok->data.symbol == SYM_PAREN_L) {
+		literal->kind = EXPR_LITERAL;
+		literal->data.expr = parse_expr(fn, parser, true);
+		if (!literal->data.expr)
+			goto err_free_literal;
+		tok = eat_tok(parser);
+		if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_PAREN_R)
+			goto err_expr_not_end;
+		return literal;
+	}
+	if (tok->kind != SCLEXER_INT && tok->kind != SCLEXER_INT_NEG)
+		goto err_free_literal;
 	literal->kind = INT_LITERAL;
 	literal->data.i = tok->data.sint;
 	return literal;
+err_expr_not_end:
+	print_err("expression not end", tok);
+	free_zako_expr(literal->data.expr);
+err_free_literal:
+	free(literal);
+	return NULL;
 }
 
 struct zako_stmt *
@@ -396,7 +431,7 @@ parse_return_stmt(struct zako_fn_definition *fn, struct parser *parser)
 	stmt = ecalloc(1, sizeof(*stmt));
 	stmt->kind = RETURN_STMT;
 	stmt->inner.return_stmt = self = ecalloc(1, sizeof(*self));
-	self->expr = parse_expr(fn, parser);
+	self->expr = parse_expr(fn, parser, false);
 	if (!self->expr)
 		goto err_free_stmt;
 	if (analyse_expr(self->expr, fn->declaration->ident
@@ -488,8 +523,12 @@ err_free_type:
 }
 
 enum ZAKO_SYMBOL
-peek_expr_op(struct sclexer_tok *tok)
+peek_expr_op(struct sclexer_tok *tok, struct parser *parser, bool in_paren)
 {
+	if (tok->kind == SCLEXER_EOL && in_paren) {
+		eat_tok(parser);
+		tok = peek_tok(parser);
+	}
 	if (tok->kind != SCLEXER_SYMBOL)
 		return 0;
 	if (tok->data.symbol < SYM_INFIX_ADD)
@@ -758,11 +797,12 @@ print_literal(struct zako_literal *self, Jim *jim)
 	jim_member_key(jim, "kind");
 	switch (self->kind) {
 	case EXPR_LITERAL:
-		jim_string(jim, "expr literal");
+		jim_string(jim, "literal");
+		jim_member_key(jim, "expr");
 		print_expr(self->data.expr, jim);
 		break;
 	case INT_LITERAL:
-		jim_string(jim, "int literal");
+		jim_string(jim, "literal");
 		jim_member_key(jim, "int");
 		jim_integer(jim, self->data.i);
 		break;
