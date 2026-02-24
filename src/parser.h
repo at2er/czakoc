@@ -19,24 +19,6 @@ enum ZAKO_SYMBOL {
 	SYM_INFIX_SUB
 };
 
-struct zako_declaration {
-	enum DECLARATION_KIND {
-		FN_DECLARATION
-	} kind;
-	union {
-		struct zako_fn_declaration *fn_declaration;
-	} inner;
-};
-
-struct zako_definition {
-	enum DEFINITION_KIND {
-		FN_DEFINITION
-	} kind;
-	union {
-		struct zako_fn_definition *fn_defintion;
-	} inner;
-};
-
 struct zako_binary_expr {
 	enum ZAKO_SYMBOL op;
 	struct zako_literal *lhs, *rhs;
@@ -94,12 +76,12 @@ struct zako_stmt {
 
 struct zako_toplevel_stmt {
 	enum TOPLEVEL_STMT_KIND {
-		DECLARATION_STMT,
-		DEFINITION_STMT
+		FN_DECLARATION,
+		FN_DEFINITION
 	} kind;
 	union {
-		struct zako_declaration declaration;
-		struct zako_definition definition;
+		struct zako_fn_declaration *fn_declaration;
+		struct zako_fn_definition *fn_definition;
 	} inner;
 };
 

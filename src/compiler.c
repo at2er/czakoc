@@ -29,9 +29,6 @@ struct compiler_context {
 static struct mcb_value *compile_binary_expr(
 		struct zako_binary_expr *binary,
 		struct compiler_context *ctx);
-static int compile_definition_stmt(
-		struct zako_definition *definition,
-		struct compiler_context *ctx);
 static struct mcb_value *compile_expr(
 		struct zako_expr *expr,
 		struct compiler_context *ctx);
@@ -93,21 +90,6 @@ compile_binary_expr(
 		break;
 	}
 	return result;
-}
-
-int
-compile_definition_stmt(
-		struct zako_definition *definition,
-		struct compiler_context *ctx)
-{
-	assert(definition && ctx);
-	switch (definition->kind) {
-	case FN_DEFINITION:
-		return compile_fn_definition(
-				definition->inner.fn_defintion,
-				ctx);
-	}
-	return 0;
 }
 
 struct mcb_value *
@@ -241,12 +223,12 @@ compile_toplevel_stmt(
 {
 	assert(stmt && ctx);
 	switch (stmt->kind) {
-	case DECLARATION_STMT:
+	case FN_DECLARATION:
 		panic("toplevel declaration statement");
 		break;
-	case DEFINITION_STMT:
-		return compile_definition_stmt(
-				&stmt->inner.definition,
+	case FN_DEFINITION:
+		return compile_fn_definition(
+				stmt->inner.fn_definition,
 				ctx);
 	}
 	return 0;

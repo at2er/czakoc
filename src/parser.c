@@ -37,8 +37,6 @@ struct parser {
 	struct zako_module *mod;
 };
 
-static void destory_zako_declaration(struct zako_declaration *self);
-static void destory_zako_definition(struct zako_definition *self);
 static char *dup_slice_to_cstr(struct sclexer_str_slice *slice);
 static struct sclexer_tok *eat_tok(struct parser *parser);
 static int get_expr_op_binding_power(enum ZAKO_SYMBOL sym);
@@ -106,30 +104,6 @@ static const char *symbols[] = {
 	[SYM_INFIX_MUL] = "*",
 	[SYM_INFIX_SUB] = "-"
 };
-
-void
-destory_zako_declaration(struct zako_declaration *self)
-{
-	if (!self)
-		return;
-	switch (self->kind) {
-	case FN_DECLARATION:
-		free_zako_fn_declaration(self->inner.fn_declaration);
-		break;
-	}
-}
-
-void
-destory_zako_definition(struct zako_definition *self)
-{
-	if (!self)
-		return;
-	switch (self->kind) {
-	case FN_DEFINITION:
-		free_zako_fn_definition(self->inner.fn_defintion);
-		break;
-	}
-}
 
 char *
 dup_slice_to_cstr(struct sclexer_str_slice *slice)
@@ -301,26 +275,23 @@ parse_fn_definition(struct sclexer_tok *tok, struct parser *parser)
 	if (!declaration)
 		return NULL;
 	stmt = ecalloc(1, sizeof(*stmt));
-	stmt->kind = DECLARATION_STMT;
-	stmt->inner.declaration.kind = FN_DECLARATION;
-	stmt->inner.declaration.inner.fn_declaration = declaration;
+	stmt->kind = FN_DECLARATION;
+	stmt->inner.fn_declaration = declaration;
 	tok = peek_tok(parser);
 	if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_ASSIGN) {
 		if (tok->kind != SCLEXER_EOL || tok->kind != SCLEXER_EOF)
 			goto err_unexpected_token;
 		return stmt; /* declaration */
 	}
-	stmt->inner.definition.inner.fn_defintion =
-		parse_fn_body(declaration, parser);
-	if (!stmt->inner.definition.inner.fn_defintion)
+	stmt->inner.fn_definition = parse_fn_body(declaration, parser);
+	if (!stmt->inner.fn_definition)
 		goto err_parse_fn_body;
-	stmt->kind = DEFINITION_STMT;
-	stmt->inner.definition.kind = FN_DEFINITION;
+	stmt->kind = FN_DEFINITION;
 	return stmt;
 err_unexpected_token:
 	print_err("unexpected token", tok);
 err_parse_fn_body:
-	stmt->inner.declaration.inner.fn_declaration = declaration;
+	stmt->inner.fn_declaration = declaration;
 	free_zako_toplevel_stmt(stmt);
 	return NULL;
 }
@@ -610,11 +581,11 @@ free_zako_toplevel_stmt(struct zako_toplevel_stmt *self)
 	if (!self)
 		return;
 	switch (self->kind) {
-	case DECLARATION_STMT:
-		destory_zako_declaration(&self->inner.declaration);
+	case FN_DECLARATION:
+		free_zako_fn_declaration(self->inner.fn_declaration);
 		break;
-	case DEFINITION_STMT:
-		destory_zako_definition(&self->inner.definition);
+	case FN_DEFINITION:
+		free_zako_fn_definition(self->inner.fn_definition);
 		break;
 	}
 	free(self);
@@ -811,17 +782,10 @@ print_toplevel_stmt(struct zako_toplevel_stmt *self, Jim *jim)
 	if (!jim)
 		jim = &fallback;
 	switch (self->kind) {
-	case DECLARATION_STMT:
+	case FN_DECLARATION:
 		return;
-	case DEFINITION_STMT:
-		switch (self->inner.definition.kind) {
-		case FN_DEFINITION:
-			print_fn_definition(
-					self->inner.definition.inner
-					.fn_defintion,
-					jim);
-			break;
-		}
+	case FN_DEFINITION:
+		print_fn_definition(self->inner.fn_definition, jim);
 		break;
 	}
 }
