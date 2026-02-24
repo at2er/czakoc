@@ -14,9 +14,9 @@ OBJ_DEPS = $(addprefix $(BUILD_DIR)/,$(SRC:.c=.d))
 
 CC_CMD = $(CC) $(CFLAGS) -g3 -c -o $@ $<
 
-all: $(TARGET)
+all: libmcb $(TARGET)
 
-libmcb/libmcb.a:
+libmcb:
 	@$(MAKE) -C libmcb
 
 $(OBJ_DIRS):
@@ -33,6 +33,9 @@ $(TARGET): $(OBJ) libmcb/libmcb.a
 clean:
 	@echo "  CLEAN"
 	@rm -f $(OBJ) $(TARGET)
+
+clean-all: clean clean-mcb
+clean-mcb:
 	@$(MAKE) -C libmcb clean
 
 install:
@@ -47,4 +50,5 @@ ifeq (,$(filter clean,$(MAKECMDGOALS)))
 -include $(OBJ_DEPS)
 endif
 
-.PHONY: all clean install uninstall
+.PHONY: all clean clean-all clean-mcb install uninstall
+.PHONY: libmcb

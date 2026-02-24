@@ -3,6 +3,7 @@
 #include <mcb/context.h>
 #include <mcb/func.h>
 #include <mcb/inst/add.h>
+#include <mcb/inst/call.h>
 #include <mcb/inst/div.h>
 #include <mcb/inst/mul.h>
 #include <mcb/inst/ret.h>
@@ -16,6 +17,7 @@
 #define UTILSH_CONTAINER_OF_STRIP
 #include "container_of.h"
 #include "darr.h"
+#include "ealloc.h"
 #include "ident.h"
 #include "panic.h"
 #include "parser.h"
@@ -33,14 +35,14 @@ static struct mcb_value *compile_binary_expr(
 static struct mcb_value *compile_expr(
 		struct zako_expr *expr,
 		struct compiler_context *ctx);
+static struct mcb_value *compile_fn_call(
+		struct zako_fn_call *call,
+		struct compiler_context *ctx);
 static int compile_fn_definition(
 		struct zako_fn_definition *definition,
 		struct compiler_context *ctx);
-static struct mcb_value *compile_literal(
-		struct zako_literal *literal,
-		struct compiler_context *ctx);
 static struct mcb_value *compile_primary_expr(
-		struct zako_literal *primary,
+		struct zako_value *primary,
 		struct compiler_context *ctx);
 static int compile_return_stmt(
 		struct zako_return_stmt *stmt,
@@ -50,6 +52,9 @@ static int compile_stmt(
 		struct compiler_context *ctx);
 static int compile_toplevel_stmt(
 		struct zako_toplevel_stmt *stmt,
+		struct compiler_context *ctx);
+static struct mcb_value *compile_value(
+		struct zako_value *value,
 		struct compiler_context *ctx);
 static enum MCB_TYPE mcb_type_from_zako(struct zako_type *type);
 
@@ -66,8 +71,8 @@ compile_binary_expr(
 			"binary_expr_result",
 			mcb_type_from_zako(expr->type),
 			ctx->fn);
-	lhs = compile_literal(binary->lhs, ctx);
-	rhs = compile_literal(binary->rhs, ctx);
+	lhs = compile_value(binary->lhs, ctx);
+	rhs = compile_value(binary->rhs, ctx);
 	switch (binary->op) {
 	case SYM_INFIX_ADD:
 		if (mcb_inst_add(result, lhs, rhs, ctx->fn))
@@ -106,6 +111,32 @@ compile_expr(struct zako_expr *expr, struct compiler_context *ctx)
 	return NULL;
 }
 
+struct mcb_value *
+compile_fn_call(struct zako_fn_call *call, struct compiler_context *ctx)
+{
+	struct mcb_value *value;
+	struct mcb_value **args;
+	assert(call && ctx);
+	value = mcb_define_value(
+			"fn_call_result",
+			mcb_type_from_zako(call->fn->type->inner.fn.type),
+			ctx->fn);
+	args = ecalloc(call->argc, sizeof(*args));
+	for (int i = 0; i < call->argc; i++) {
+		args[i] = compile_value(call->args[i], ctx);
+		if (!args[i])
+			panic("compile_value()");
+	}
+	if (mcb_inst_call(value,
+				call->fn->type->inner.fn.mcb_fn,
+				call->argc,
+				args,
+				ctx->fn))
+		panic("mcb_inst_call()");
+	free(args);
+	return value;
+}
+
 int
 compile_fn_definition(
 		struct zako_fn_definition *definition,
@@ -127,6 +158,7 @@ compile_fn_definition(
 			&ctx->mcb);
 	if (!mcb_fn)
 		goto err_define_func;
+	fn_type->mcb_fn = mcb_fn;
 	for (int i = 0; i < fn_type->argc; i++) {
 		mcb_fn_arg = mcb_define_func_arg(
 				fn_type->args[i]->name,
@@ -154,35 +186,12 @@ err_define_arg:
 }
 
 struct mcb_value *
-compile_literal(struct zako_literal *literal, struct compiler_context *ctx)
-{
-	struct mcb_value *value;
-	switch (literal->kind) {
-	case EXPR_LITERAL:
-		return compile_expr(literal->data.expr, ctx);
-	case IDENT_LITERAL:
-		return literal->data.ident->value;
-	case INT_LITERAL:
-		value = mcb_define_value(
-				"_",
-				mcb_type_from_zako(literal->type),
-				ctx->fn);
-		if (!value)
-			panic("mcb_define_value()");
-		if (mcb_inst_store_int(value, literal->data.i, ctx->fn))
-			panic("mcb_inst_store_int()");
-		break;
-	}
-	return value;
-}
-
-struct mcb_value *
 compile_primary_expr(
-		struct zako_literal *primary,
+		struct zako_value *primary,
 		struct compiler_context *ctx)
 {
 	assert(primary && ctx);
-	return compile_literal(primary, ctx);
+	return compile_value(primary, ctx);
 }
 
 int
@@ -225,6 +234,31 @@ compile_toplevel_stmt(
 				ctx);
 	}
 	return 0;
+}
+
+struct mcb_value *
+compile_value(struct zako_value *value, struct compiler_context *ctx)
+{
+	struct mcb_value *mcb_val;
+	switch (value->kind) {
+	case EXPR_VALUE:
+		return compile_expr(value->data.expr, ctx);
+	case FN_CALL_VALUE:
+		return compile_fn_call(value->data.fn_call, ctx);
+	case IDENT_VALUE:
+		return value->data.ident->value;
+	case INT_LITERAL:
+		mcb_val = mcb_define_value(
+				"_",
+				mcb_type_from_zako(value->type),
+				ctx->fn);
+		if (!mcb_val)
+			panic("mcb_define_value()");
+		if (mcb_inst_store_int(mcb_val, value->data.i, ctx->fn))
+			panic("mcb_inst_store_int()");
+		break;
+	}
+	return mcb_val;
 }
 
 enum MCB_TYPE

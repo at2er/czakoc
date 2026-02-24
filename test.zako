@@ -3,6 +3,9 @@
 ; 		return x
 ; 	return (fib x - 1) + (fib x - 2)
 
+f fn(x i32) i32 =
+	return x
+
 pub main fn(argc i32) i32 =
-	return argc
+	return f argc
 	; return fib 35

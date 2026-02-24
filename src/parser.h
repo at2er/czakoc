@@ -21,7 +21,7 @@ enum ZAKO_SYMBOL {
 
 struct zako_binary_expr {
 	enum ZAKO_SYMBOL op;
-	struct zako_literal *lhs, *rhs;
+	struct zako_value *lhs, *rhs;
 };
 
 struct zako_expr {
@@ -31,10 +31,16 @@ struct zako_expr {
 	} kind;
 	union {
 		struct zako_binary_expr binary;
-		struct zako_literal *primary;
+		struct zako_value *primary;
 	} inner;
 
 	struct zako_type *type;
+};
+
+struct zako_fn_call {
+	struct zako_ident *fn;
+	int argc;
+	struct zako_value **args;
 };
 
 struct zako_fn_declaration {
@@ -48,14 +54,16 @@ struct zako_fn_definition {
 	size_t stmts_count;
 };
 
-struct zako_literal {
-	enum LITERAL_KIND {
-		EXPR_LITERAL,
-		IDENT_LITERAL,
+struct zako_value {
+	enum VALUE_KIND {
+		EXPR_VALUE,
+		FN_CALL_VALUE,
+		IDENT_VALUE,
 		INT_LITERAL
 	} kind;
 	union {
 		struct zako_expr *expr;
+		struct zako_fn_call *fn_call;
 		struct zako_ident *ident;
 		int64_t  i;
 		uint64_t u;
@@ -89,21 +97,23 @@ struct zako_toplevel_stmt {
 };
 
 void free_zako_expr(struct zako_expr *self);
+void free_zako_fn_call(struct zako_fn_call *self);
 void free_zako_fn_declaration(struct zako_fn_declaration *self);
 void free_zako_fn_definition(struct zako_fn_definition *self);
-void free_zako_literal(struct zako_literal *self);
 void free_zako_return_stmt(struct zako_return_stmt *self);
 void free_zako_stmt(struct zako_stmt *self);
 void free_zako_toplevel_stmt(struct zako_toplevel_stmt *self);
+void free_zako_value(struct zako_value *self);
 
 struct zako_module *parse_file(const char *path);
 
 void print_expr(struct zako_expr *self, Jim *jim);
+void print_fn_call(struct zako_fn_call *self, Jim *jim);
 void print_fn_definition(struct zako_fn_definition *self, Jim *jim);
 void print_ident(struct zako_ident *self, Jim *jim);
-void print_literal(struct zako_literal *self, Jim *jim);
 void print_stmt(struct zako_stmt *self, Jim *jim);
 void print_toplevel_stmt(struct zako_toplevel_stmt *self, Jim *jim);
 void print_type(struct zako_type *self, Jim *jim);
+void print_value(struct zako_value *self, Jim *jim);
 
 #endif

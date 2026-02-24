@@ -64,6 +64,10 @@ static struct zako_expr *parse_expr(
 static struct zako_fn_definition *parse_fn_body(
 		struct zako_fn_declaration *declaration,
 		struct parser *parser);
+static struct zako_fn_call *parse_fn_call(
+		struct zako_ident *callee,
+		struct zako_fn_definition *fn,
+		struct parser *parser);
 static struct zako_fn_declaration *parse_fn_declaration(
 		struct sclexer_tok *tok,
 		struct parser *parser,
@@ -76,9 +80,6 @@ static int parse_fn_sign(struct zako_fn_type *type, struct parser *parser);
 static struct zako_ident *parse_ident_sign(
 		struct sclexer_tok *tok,
 		struct parser *parser);
-static struct zako_literal *parse_literal(
-		struct zako_fn_definition *fn,
-		struct parser *parser);
 static struct zako_stmt *parse_return_stmt(
 		struct zako_fn_definition *fn,
 		struct parser *parser);
@@ -90,6 +91,9 @@ static struct zako_toplevel_stmt *parse_toplevel_stmt(
 		struct sclexer_tok *tok,
 		struct parser *parser);
 static struct zako_type *parse_type(struct parser *parser);
+static struct zako_value *parse_value(
+		struct zako_fn_definition *fn,
+		struct parser *parser);
 static enum ZAKO_SYMBOL peek_expr_op(
 		struct sclexer_tok *tok,
 		struct parser *parser,
@@ -209,14 +213,14 @@ merge_expr(struct zako_expr *origin, struct zako_expr *append)
 
 	if (orig_power >= append_power) {
 		append_binary->lhs = ecalloc(1, sizeof(*append_binary->lhs));
-		append_binary->lhs->kind = EXPR_LITERAL;
+		append_binary->lhs->kind = EXPR_VALUE;
 		append_binary->lhs->data.expr = origin;
 		return append;
 	}
 
 	append_binary->lhs = orig_binary->rhs;
 	orig_binary->rhs = ecalloc(1, sizeof(*orig_binary->rhs));
-	orig_binary->rhs->kind = EXPR_LITERAL;
+	orig_binary->rhs->kind = EXPR_VALUE;
 	orig_binary->rhs->data.expr = append;
 	return origin;
 }
@@ -225,25 +229,25 @@ struct zako_expr *
 parse_expr(struct zako_fn_definition *fn, struct parser *parser, bool in_paren)
 {
 	struct zako_expr *expr, *append_expr;
-	struct zako_literal *literal;
 	enum ZAKO_SYMBOL op = 0;
 	struct sclexer_tok *tok;
+	struct zako_value *value;
 	assert(fn && parser);
-	literal = parse_literal(fn, parser);
-	if (!literal)
+	value = parse_value(fn, parser);
+	if (!value)
 		return NULL;
 	expr = ecalloc(1, sizeof(*expr));
 	expr->kind = PRIMARY_EXPR;
-	expr->inner.primary = literal;
+	expr->inner.primary = value;
 	tok = peek_tok(parser);
 	while ((op = peek_expr_op(tok, parser, in_paren)) != 0) {
 		eat_tok(parser);
 		append_expr = ecalloc(1, sizeof(*append_expr));
 		append_expr->kind = BINARY_EXPR;
 		append_expr->inner.binary.op = op;
-		append_expr->inner.binary.rhs = parse_literal(fn, parser);
+		append_expr->inner.binary.rhs = parse_value(fn, parser);
 		if (expr->kind == PRIMARY_EXPR) {
-			append_expr->inner.binary.lhs = literal;
+			append_expr->inner.binary.lhs = value;
 			free(expr);
 			expr = append_expr;
 		} else {
@@ -293,6 +297,28 @@ err_unexpected_token:
 	print_err("unexpected token", tok);
 err_free_definition:
 	free_zako_fn_definition(definition);
+	return NULL;
+}
+
+struct zako_fn_call *
+parse_fn_call(struct zako_ident *callee,
+		struct zako_fn_definition *fn,
+		struct parser *parser)
+{
+	struct zako_fn_call *call;
+	struct zako_value *value;
+	assert(callee && fn && parser);
+	call = ecalloc(1, sizeof(*call));
+	call->fn = callee;
+	for (int i = 0; i < callee->type->inner.fn.argc; i++) {
+		value = parse_value(fn, parser);
+		if (!value)
+			goto err_free_call;
+		darr_append(call->args, call->argc, value);
+	}
+	return call;
+err_free_call:
+	free_zako_fn_call(call);
 	return NULL;
 }
 
@@ -425,50 +451,6 @@ err_parse_type:
 	return NULL;
 }
 
-struct zako_literal *
-parse_literal(struct zako_fn_definition *fn, struct parser *parser)
-{
-	char *ident_name;
-	struct zako_literal *literal;
-	struct sclexer_tok *tok;
-	assert(fn && parser);
-	tok = eat_tok(parser);
-	literal = ecalloc(1, sizeof(literal));
-	if (tok->kind == SCLEXER_SYMBOL && tok->data.symbol == SYM_PAREN_L) {
-		literal->kind = EXPR_LITERAL;
-		literal->data.expr = parse_expr(fn, parser, true);
-		if (!literal->data.expr)
-			goto err_free_literal;
-		tok = eat_tok(parser);
-		if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_PAREN_R)
-			goto err_expr_not_end;
-		return literal;
-	} else if (tok->kind == SCLEXER_IDENT) {
-		ident_name = dup_slice_to_cstr(&tok->data.str);
-		literal->kind = IDENT_LITERAL;
-		literal->data.ident = find_ident_in_scope(ident_name, parser->cur_scope);
-		if (!literal->data.ident)
-			goto err_ident_not_found;
-		free(ident_name);
-		return literal;
-	} else if (tok->kind != SCLEXER_INT && tok->kind != SCLEXER_INT_NEG) {
-		goto err_free_literal;
-	}
-	literal->kind = INT_LITERAL;
-	literal->data.i = tok->data.sint;
-	return literal;
-err_expr_not_end:
-	print_err("expression not end", tok);
-	free_zako_expr(literal->data.expr);
-	goto err_free_literal;
-err_ident_not_found:
-	printf_err("identifier '%s' not found", tok, ident_name);
-	free(ident_name);
-err_free_literal:
-	free(literal);
-	return NULL;
-}
-
 struct zako_stmt *
 parse_return_stmt(struct zako_fn_definition *fn, struct parser *parser)
 {
@@ -575,6 +557,65 @@ err_free_type:
 	return NULL;
 }
 
+struct zako_value *
+parse_value(struct zako_fn_definition *fn, struct parser *parser)
+{
+	char *ident_name;
+	struct zako_value *value;
+	struct sclexer_tok *tok;
+	assert(fn && parser);
+	tok = eat_tok(parser);
+	value = ecalloc(1, sizeof(value));
+
+	if (tok->kind == SCLEXER_SYMBOL && tok->data.symbol == SYM_PAREN_L) {
+		value->kind = EXPR_VALUE;
+		value->data.expr = parse_expr(fn, parser, true);
+		if (!value->data.expr)
+			goto err_free_value;
+		tok = eat_tok(parser);
+		if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_PAREN_R)
+			goto err_expr_not_end;
+		return value;
+	} else if (tok->kind == SCLEXER_IDENT) {
+		ident_name = dup_slice_to_cstr(&tok->data.str);
+		value->kind = IDENT_VALUE;
+		value->data.ident = find_ident_in_scope(
+				ident_name,
+				parser->cur_scope);
+		if (!value->data.ident)
+			goto err_ident_not_found;
+
+		free(ident_name);
+		if (value->data.ident->type->builtin == FN_TYPE) {
+			value->kind = FN_CALL_VALUE;
+			value->data.fn_call = parse_fn_call(
+					value->data.ident,
+					fn,
+					parser);
+			if (!value->data.fn_call)
+				goto err_free_value;
+		}
+
+		return value;
+	} else if (tok->kind != SCLEXER_INT && tok->kind != SCLEXER_INT_NEG) {
+		goto err_free_value;
+	}
+
+	value->kind = INT_LITERAL;
+	value->data.i = tok->data.sint;
+	return value;
+err_expr_not_end:
+	print_err("expression not end", tok);
+	free_zako_expr(value->data.expr);
+	goto err_free_value;
+err_ident_not_found:
+	printf_err("identifier '%s' not found", tok, ident_name);
+	free(ident_name);
+err_free_value:
+	free(value);
+	return NULL;
+}
+
 enum ZAKO_SYMBOL
 peek_expr_op(struct sclexer_tok *tok, struct parser *parser, bool in_paren)
 {
@@ -622,13 +663,23 @@ free_zako_expr(struct zako_expr *self)
 		return;
 	switch (self->kind) {
 	case BINARY_EXPR:
-		free_zako_literal(self->inner.binary.lhs);
-		free_zako_literal(self->inner.binary.rhs);
+		free_zako_value(self->inner.binary.lhs);
+		free_zako_value(self->inner.binary.rhs);
 		break;
 	case PRIMARY_EXPR:
-		free_zako_literal(self->inner.primary);
+		free_zako_value(self->inner.primary);
 		break;
 	}
+	free(self);
+}
+
+void
+free_zako_fn_call(struct zako_fn_call *self)
+{
+	if (!self)
+		return;
+	for (int i = 0; i < self->argc; i++)
+		free_zako_value(self->args[i]);
 	free(self);
 }
 
@@ -649,14 +700,6 @@ free_zako_fn_definition(struct zako_fn_definition *self)
 	for (size_t i = 0; i < self->stmts_count; i++)
 		free_zako_stmt(self->stmts[i]);
 	free(self->stmts);
-	free(self);
-}
-
-void
-free_zako_literal(struct zako_literal *self)
-{
-	if (!self)
-		return;
 	free(self);
 }
 
@@ -693,6 +736,25 @@ free_zako_toplevel_stmt(struct zako_toplevel_stmt *self)
 		break;
 	case FN_DEFINITION:
 		free_zako_fn_definition(self->inner.fn_definition);
+		break;
+	}
+	free(self);
+}
+
+void
+free_zako_value(struct zako_value *self)
+{
+	if (!self)
+		return;
+	switch (self->kind) {
+	case EXPR_VALUE:
+		free_zako_expr(self->data.expr);
+		break;
+	case FN_CALL_VALUE:
+		free_zako_fn_call(self->data.fn_call);
+		break;
+	case IDENT_VALUE:
+	case INT_LITERAL:
 		break;
 	}
 	free(self);
@@ -786,18 +848,35 @@ print_expr(struct zako_expr *self, Jim *jim)
 		jim_member_key(jim, "op");
 		jim_string(jim, symbols[self->inner.binary.op]);
 		jim_member_key(jim, "lhs");
-		print_literal(self->inner.binary.lhs, jim);
+		print_value(self->inner.binary.lhs, jim);
 		jim_member_key(jim, "rhs");
-		print_literal(self->inner.binary.rhs, jim);
+		print_value(self->inner.binary.rhs, jim);
 		break;
 	case PRIMARY_EXPR:
 		jim_string(jim, "primary");
-		jim_member_key(jim, "literal");
-		print_literal(self->inner.primary, jim);
+		jim_member_key(jim, "value");
+		print_value(self->inner.primary, jim);
 		break;
 	}
 	jim_member_key(jim, "type");
 	print_type(self->type, jim);
+	jim_object_end(jim);
+}
+
+void
+print_fn_call(struct zako_fn_call *self, Jim *jim)
+{
+	Jim fallback = {.pp = JIM_PP};
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	jim_string(jim, "function call");
+	jim_member_key(jim, "args");
+	jim_array_begin(jim);
+	for (int i = 0; i < self->argc; i++)
+		print_value(self->args[i], jim);
+	jim_array_end(jim);
 	jim_object_end(jim);
 }
 
@@ -838,34 +917,6 @@ print_ident(struct zako_ident *self, Jim *jim)
 	jim_string(jim, "identifier");
 	jim_member_key(jim, "name");
 	jim_string(jim, self->name);
-	jim_member_key(jim, "type");
-	print_type(self->type, jim);
-	jim_object_end(jim);
-}
-
-void
-print_literal(struct zako_literal *self, Jim *jim)
-{
-	Jim fallback = {.pp = JIM_PP};
-	if (!jim)
-		jim = &fallback;
-	jim_object_begin(jim);
-	jim_member_key(jim, "kind");
-	jim_string(jim, "literal");
-	switch (self->kind) {
-	case EXPR_LITERAL:
-		jim_member_key(jim, "expr");
-		print_expr(self->data.expr, jim);
-		break;
-	case IDENT_LITERAL:
-		jim_member_key(jim, "ident");
-		print_ident(self->data.ident, jim);
-		break;
-	case INT_LITERAL:
-		jim_member_key(jim, "int");
-		jim_integer(jim, self->data.i);
-		break;
-	}
 	jim_member_key(jim, "type");
 	print_type(self->type, jim);
 	jim_object_end(jim);
@@ -919,5 +970,37 @@ print_type(struct zako_type *self, Jim *jim)
 	} else if (self->builtin == FN_TYPE) {
 		jim_string(jim, "function");
 	}
+	jim_object_end(jim);
+}
+
+void
+print_value(struct zako_value *self, Jim *jim)
+{
+	Jim fallback = {.pp = JIM_PP};
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	jim_string(jim, "value");
+	switch (self->kind) {
+	case EXPR_VALUE:
+		jim_member_key(jim, "expr");
+		print_expr(self->data.expr, jim);
+		break;
+	case FN_CALL_VALUE:
+		jim_member_key(jim, "function call");
+		print_fn_call(self->data.fn_call, jim);
+		break;
+	case IDENT_VALUE:
+		jim_member_key(jim, "ident");
+		print_ident(self->data.ident, jim);
+		break;
+	case INT_LITERAL:
+		jim_member_key(jim, "int");
+		jim_integer(jim, self->data.i);
+		break;
+	}
+	jim_member_key(jim, "type");
+	print_type(self->type, jim);
 	jim_object_end(jim);
 }

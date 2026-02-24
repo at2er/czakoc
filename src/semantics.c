@@ -9,11 +9,14 @@
 static int analyse_binary_expr(
 		struct zako_expr *expr,
 		struct zako_type *expect_type);
+static int analyse_fn_call(
+		struct zako_fn_call *call,
+		struct zako_type *expect_type);
 static int analyse_ident(
 		struct zako_ident *ident,
 		struct zako_type *expect_type);
-static int analyse_literal(
-		struct zako_literal *literal,
+static int analyse_value(
+		struct zako_value *value,
 		struct zako_type *expect_type);
 static int analyse_primary_expr(
 		struct zako_expr *expr,
@@ -42,13 +45,30 @@ analyse_binary_expr(
 	int ret;
 	assert(expr && expect_type);
 	binary = &expr->inner.binary;
-	ret = analyse_literal(binary->lhs, expect_type);
+	ret = analyse_value(binary->lhs, expect_type);
 	if (ret)
 		return ret;
-	ret = analyse_literal(binary->rhs, expect_type);
+	ret = analyse_value(binary->rhs, expect_type);
 	if (ret)
 		return ret;
 	return 0;
+}
+
+int
+analyse_fn_call(struct zako_fn_call *call, struct zako_type *expect_type)
+{
+	struct zako_fn_type *fn_type;
+	int ret;
+	assert(call && expect_type);
+	fn_type = &call->fn->type->inner.fn;
+	for (int i = 0; i < call->argc; i++) {
+		ret = analyse_value(call->args[i], fn_type->args[i]->type);
+		if (ret)
+			return ret;
+	}
+	return compare_builtin_type(call->fn->type->inner
+			.fn.type->builtin,
+			expect_type->builtin);
 }
 
 int
@@ -59,20 +79,25 @@ analyse_ident(struct zako_ident *ident, struct zako_type *expect_type)
 }
 
 int
-analyse_literal(
-		struct zako_literal *literal,
+analyse_value(
+		struct zako_value *value,
 		struct zako_type *expect_type)
 {
 	int ret;
-	assert(literal && expect_type);
-	switch (literal->kind) {
-	case EXPR_LITERAL:
-		ret = analyse_expr(literal->data.expr, expect_type);
+	assert(value && expect_type);
+	switch (value->kind) {
+	case EXPR_VALUE:
+		ret = analyse_expr(value->data.expr, expect_type);
 		if (ret)
 			return ret;
 		break;
-	case IDENT_LITERAL:
-		ret = analyse_ident(literal->data.ident, expect_type);
+	case FN_CALL_VALUE:
+		ret = analyse_fn_call(value->data.fn_call, expect_type);
+		if (ret)
+			return ret;
+		break;
+	case IDENT_VALUE:
+		ret = analyse_ident(value->data.ident, expect_type);
 		if (ret)
 			return ret;
 		break;
@@ -81,7 +106,7 @@ analyse_literal(
 			return TYPE_COMPARE_IMPLICIT_CAST;
 		break;
 	}
-	literal->type = expect_type;
+	value->type = expect_type;
 	return 0;
 }
 
@@ -91,7 +116,7 @@ analyse_primary_expr(
 		struct zako_type *expect_type)
 {
 	assert(expr && expect_type);
-	return analyse_literal(expr->inner.primary, expect_type);
+	return analyse_value(expr->inner.primary, expect_type);
 }
 
 int
