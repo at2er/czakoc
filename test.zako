@@ -4,5 +4,5 @@
 ; 	return (fib x - 1) + (fib x - 2)
 
 pub main fn(argc i32) i32 =
-	return (1 + 1)
+	return argc
 	; return fib 35

@@ -9,6 +9,7 @@
 #include <mcb/inst/store.h>
 #include <mcb/inst/sub.h>
 #include <mcb/target/gnu_asm.h>
+#include <mcb/value.h>
 #include <stddef.h>
 #include <stdio.h>
 #include "compiler.h"
@@ -114,8 +115,6 @@ compile_fn_definition(
 	struct zako_fn_type *fn_type;
 	struct mcb_func *mcb_fn;
 	struct mcb_func_arg *mcb_fn_arg;
-	struct mcb_func_arg **mcb_fn_args = NULL;
-	size_t mcb_fn_args_count = 0;
 	assert(definition && ctx);
 
 	declaration = definition->declaration;
@@ -135,23 +134,22 @@ compile_fn_definition(
 				mcb_fn);
 		if (!mcb_fn_arg)
 			goto err_define_arg;
-		darr_append(mcb_fn_args, mcb_fn_args_count, mcb_fn_arg);
+		fn_type->args[i]->value = mcb_define_value_from_func_arg(
+				fn_type->args[i]->name,
+				mcb_fn_arg,
+				mcb_fn);
 	}
 	ctx->fn = mcb_fn;
 	for (size_t i = 0; i < definition->stmts_count; i++) {
 		if (compile_stmt(definition->stmts[i], ctx))
-			goto err_free_mcb_fn_args;
+			return 1;
 	}
-	free(mcb_fn_args);
 	return 0;
 err_define_func:
 	panic("mcb_define_func()");
 	return 1;
 err_define_arg:
 	panic("mcb_define_func_arg()");
-err_free_mcb_fn_args:
-	if (mcb_fn_args)
-		free(mcb_fn_args);
 	return 1;
 }
 
@@ -162,6 +160,8 @@ compile_literal(struct zako_literal *literal, struct compiler_context *ctx)
 	switch (literal->kind) {
 	case EXPR_LITERAL:
 		return compile_expr(literal->data.expr, ctx);
+	case IDENT_LITERAL:
+		return literal->data.ident->value;
 	case INT_LITERAL:
 		value = mcb_define_value(
 				"_",
@@ -258,13 +258,16 @@ compile_file(
 
 	for (size_t i = 0; i < stmts_count; i++) {
 		if (compile_toplevel_stmt(stmts[i], &ctx))
-			return 1;
+			goto err_destory_ctx;
 	}
 
 	if (mcb_target_gnu_asm(stdout, &ctx.mcb))
-		return 1;
+		goto err_destory_ctx;
 
 	mcb_destory_context(&ctx.mcb);
 
 	return 0;
+err_destory_ctx:
+	mcb_destory_context(&ctx.mcb);
+	return 1;
 }

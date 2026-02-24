@@ -51,10 +51,12 @@ struct zako_fn_definition {
 struct zako_literal {
 	enum LITERAL_KIND {
 		EXPR_LITERAL,
+		IDENT_LITERAL,
 		INT_LITERAL
 	} kind;
 	union {
 		struct zako_expr *expr;
+		struct zako_ident *ident;
 		int64_t  i;
 		uint64_t u;
 	} data;

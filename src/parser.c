@@ -29,17 +29,30 @@ enum KEYWORD {
 	KEYWORD_U8, KEYWORD_U16, KEYWORD_U32, KEYWORD_U64
 };
 
+struct scope;
 struct parser {
 	size_t cur_tok;
 	struct sclexer_tok *tokens;
 	size_t tokens_count;
 
 	struct zako_module *mod;
+
+	struct scope *cur_scope;
+};
+
+struct scope {
+	struct zako_ident **idents;
+	size_t idents_count;
+
+	struct scope *parent;
 };
 
 static char *dup_slice_to_cstr(struct sclexer_str_slice *slice);
 static struct sclexer_tok *eat_tok(struct parser *parser);
 static struct sclexer_tok *eat_tok_skip_white(struct parser *parser);
+static struct zako_ident *find_ident_in_scope(
+		const char *name,
+		struct scope *scope);
 static int get_expr_op_binding_power(enum ZAKO_SYMBOL sym);
 static struct zako_expr *merge_expr(
 		struct zako_expr *origin,
@@ -147,6 +160,19 @@ eat_tok_skip_white(struct parser *parser)
 			return NULL;
 	}
 	return tok;
+}
+
+struct zako_ident *
+find_ident_in_scope(const char *name, struct scope *scope)
+{
+	while (scope) {
+		for (size_t i = 0; i < scope->idents_count; i++) {
+			if (strcmp(name, scope->idents[i]->name) == 0)
+				return scope->idents[i];
+		}
+		scope = scope->parent;
+	}
+	return NULL;
 }
 
 int
@@ -286,6 +312,9 @@ parse_fn_declaration(
 	declaration = ecalloc(1, sizeof(*declaration));
 	declaration->ident = ident;
 	declaration->public = public;
+	darr_append(parser->cur_scope->idents,
+			parser->cur_scope->idents_count,
+			ident);
 	return declaration;
 }
 
@@ -361,6 +390,11 @@ parse_fn_sign(struct zako_fn_type *type, struct parser *parser)
 	type->type = parse_type(parser);
 	if (!type->type)
 		goto err_free_args;
+	for (int i = 0; i < type->argc; i++) {
+		darr_append(parser->cur_scope->idents,
+				parser->cur_scope->idents_count,
+				type->args[i]);
+	}
 	return 0;
 err_unexpected_symbol:
 	printf_err("unexpected symbol '%s'", tok, symbols[tok->data.symbol]);
@@ -394,6 +428,7 @@ err_parse_type:
 struct zako_literal *
 parse_literal(struct zako_fn_definition *fn, struct parser *parser)
 {
+	char *ident_name;
 	struct zako_literal *literal;
 	struct sclexer_tok *tok;
 	assert(fn && parser);
@@ -408,15 +443,27 @@ parse_literal(struct zako_fn_definition *fn, struct parser *parser)
 		if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_PAREN_R)
 			goto err_expr_not_end;
 		return literal;
-	}
-	if (tok->kind != SCLEXER_INT && tok->kind != SCLEXER_INT_NEG)
+	} else if (tok->kind == SCLEXER_IDENT) {
+		ident_name = dup_slice_to_cstr(&tok->data.str);
+		literal->kind = IDENT_LITERAL;
+		literal->data.ident = find_ident_in_scope(ident_name, parser->cur_scope);
+		if (!literal->data.ident)
+			goto err_ident_not_found;
+		free(ident_name);
+		return literal;
+	} else if (tok->kind != SCLEXER_INT && tok->kind != SCLEXER_INT_NEG) {
 		goto err_free_literal;
+	}
 	literal->kind = INT_LITERAL;
 	literal->data.i = tok->data.sint;
 	return literal;
 err_expr_not_end:
 	print_err("expression not end", tok);
 	free_zako_expr(literal->data.expr);
+	goto err_free_literal;
+err_ident_not_found:
+	printf_err("identifier '%s' not found", tok, ident_name);
+	free(ident_name);
 err_free_literal:
 	free(literal);
 	return NULL;
@@ -425,19 +472,25 @@ err_free_literal:
 struct zako_stmt *
 parse_return_stmt(struct zako_fn_definition *fn, struct parser *parser)
 {
+	int ret;
 	struct zako_return_stmt *self;
 	struct zako_stmt *stmt;
+	struct sclexer_tok *begin;
 	assert(fn && parser);
+	begin = peek_tok(parser);
 	stmt = ecalloc(1, sizeof(*stmt));
 	stmt->kind = RETURN_STMT;
 	stmt->inner.return_stmt = self = ecalloc(1, sizeof(*self));
 	self->expr = parse_expr(fn, parser, false);
 	if (!self->expr)
 		goto err_free_stmt;
-	if (analyse_expr(self->expr, fn->declaration->ident
-				->type->inner.fn.type))
-		goto err_free_stmt;
+	ret = analyse_expr(self->expr, fn->declaration->ident
+				->type->inner.fn.type);
+	if (ret)
+		goto err_analyse_expr;
 	return stmt;
+err_analyse_expr:
+	printf_err("return stmt: %s", begin, cstr_analysis_result(ret));
 err_free_stmt:
 	free_zako_stmt(stmt);
 	return NULL;
@@ -658,6 +711,8 @@ parse_file(const char *path)
 	size_t stmts_count = 0;
 	assert(path);
 
+	parser.cur_scope = ecalloc(1, sizeof(*parser.cur_scope));
+
 	mod = ecalloc(1, sizeof(*mod));
 	strcpy(mod->file_path, path);
 
@@ -711,6 +766,7 @@ err_unknown_token:
 err_compile_file:
 	printf_err_msg("compile file '%s'", path);
 err_free_all:
+	free(parser.cur_scope);
 	free(src);
 	free(mod);
 	return NULL;
@@ -795,14 +851,17 @@ print_literal(struct zako_literal *self, Jim *jim)
 		jim = &fallback;
 	jim_object_begin(jim);
 	jim_member_key(jim, "kind");
+	jim_string(jim, "literal");
 	switch (self->kind) {
 	case EXPR_LITERAL:
-		jim_string(jim, "literal");
 		jim_member_key(jim, "expr");
 		print_expr(self->data.expr, jim);
 		break;
+	case IDENT_LITERAL:
+		jim_member_key(jim, "ident");
+		print_ident(self->data.ident, jim);
+		break;
 	case INT_LITERAL:
-		jim_string(jim, "literal");
 		jim_member_key(jim, "int");
 		jim_integer(jim, self->data.i);
 		break;
