@@ -51,10 +51,12 @@ static struct zako_fn_definition *parse_fn_body(
 		struct parser *parser);
 static struct zako_fn_declaration *parse_fn_declaration(
 		struct sclexer_tok *tok,
-		struct parser *parser);
+		struct parser *parser,
+		bool public);
 static struct zako_toplevel_stmt *parse_fn_definition(
 		struct sclexer_tok *tok,
-		struct parser *parser);
+		struct parser *parser,
+		bool public);
 static int parse_fn_sign(struct zako_fn_type *type, struct parser *parser);
 static struct zako_ident *parse_ident_sign(
 		struct sclexer_tok *tok,
@@ -165,13 +167,12 @@ merge_expr(struct zako_expr *origin, struct zako_expr *append)
 		append_binary->lhs->kind = EXPR_LITERAL;
 		append_binary->lhs->data.expr = origin;
 		return append;
-	} else {
-		append_binary->lhs = orig_binary->rhs;
-		orig_binary->rhs = ecalloc(1, sizeof(*orig_binary->rhs));
-		orig_binary->rhs->kind = EXPR_LITERAL;
-		orig_binary->rhs->data.expr = append;
-		return origin;
 	}
+
+	append_binary->lhs = orig_binary->rhs;
+	orig_binary->rhs = ecalloc(1, sizeof(*orig_binary->rhs));
+	orig_binary->rhs->kind = EXPR_LITERAL;
+	orig_binary->rhs->data.expr = append;
 	return origin;
 }
 
@@ -251,7 +252,10 @@ err_free_definition:
 }
 
 struct zako_fn_declaration *
-parse_fn_declaration(struct sclexer_tok *tok, struct parser *parser)
+parse_fn_declaration(
+		struct sclexer_tok *tok,
+		struct parser *parser,
+		bool public)
 {
 	struct zako_fn_declaration *declaration;
 	struct zako_ident *ident;
@@ -262,16 +266,17 @@ parse_fn_declaration(struct sclexer_tok *tok, struct parser *parser)
 		return NULL;
 	declaration = ecalloc(1, sizeof(*declaration));
 	declaration->ident = ident;
+	declaration->public = public;
 	return declaration;
 }
 
 struct zako_toplevel_stmt *
-parse_fn_definition(struct sclexer_tok *tok, struct parser *parser)
+parse_fn_definition(struct sclexer_tok *tok, struct parser *parser, bool public)
 {
 	struct zako_fn_declaration *declaration;
 	struct zako_toplevel_stmt *stmt;
 	assert(tok && parser);
-	declaration = parse_fn_declaration(tok, parser);
+	declaration = parse_fn_declaration(tok, parser, public);
 	if (!declaration)
 		return NULL;
 	stmt = ecalloc(1, sizeof(*stmt));
@@ -430,8 +435,18 @@ parse_toplevel_stmt(struct sclexer_tok *tok, struct parser *parser)
 	/* Definition also handle declaration,
 	 * but when declaration is correct and not have definition,
 	 * fallback to declaration. */
-	if (tok->kind == SCLEXER_IDENT)
-		return parse_fn_definition(tok, parser);
+	if (tok->kind == SCLEXER_IDENT) {
+		return parse_fn_definition(tok, parser, false);
+	} else if (tok->kind == SCLEXER_KEYWORD) {
+		switch (tok->data.keyword) {
+		case KEYWORD_PUB:
+			tok = eat_tok(parser);
+			return parse_fn_definition(tok, parser, true);
+		default:
+			break;
+		}
+	}
+	print_err("unexpected token", tok);
 	return NULL;
 }
 

@@ -39,6 +39,7 @@ struct zako_expr {
 
 struct zako_fn_declaration {
 	struct zako_ident *ident;
+	bool public;
 };
 
 struct zako_fn_definition {

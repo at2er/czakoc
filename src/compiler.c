@@ -124,7 +124,7 @@ compile_fn_definition(
 	mcb_fn = mcb_define_func(
 			declaration->ident->name,
 			mcb_type_from_zako(fn_type->type),
-			MCB_EXPORT_FUNC,
+			declaration->public ? MCB_EXPORT_FUNC : MCB_LOCAL_FUNC,
 			&ctx->mcb);
 	if (!mcb_fn)
 		goto err_define_func;
