@@ -18,5 +18,6 @@ struct zako_ident {
 };
 
 void free_zako_ident(struct zako_ident *self);
+void print_ident(struct zako_ident *self, Jim *jim);
 
 #endif

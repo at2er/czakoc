@@ -2,8 +2,8 @@
 #ifndef CZAKOC_SEMANTICS_H
 #define CZAKOC_SEMANTICS_H
 #include <stdbool.h>
-#include "parser.h"
-#include "type.h"
+#include "../expr.h"
+#include "../type.h"
 
 enum ANALYSIS_RESULT {
 	SUCCESS,

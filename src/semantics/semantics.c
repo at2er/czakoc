@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <assert.h>
 #include <stdbool.h>
-#include "ident.h"
-#include "parser.h"
 #include "semantics.h"
-#include "type.h"
+#include "../ident.h"
+#include "../parser/parser.h"
+#include "../type.h"
 
 static int analyse_binary_expr(
 		struct zako_expr *expr,

@@ -3,7 +3,7 @@
 #include "err.h"
 #define GETARG_IMPL
 #include "getarg.h"
-#include "parser.h"
+#include "parser/parser.h"
 
 static int parse_cmdline_args(int argc, char *argv[]);
 

@@ -1,3 +1,5 @@
+// https://github.com/tsoding/jim
+//
 // Jim 2.0
 //
 // Current version of Jim. Main differences from Jim 1.0 are
@@ -7,6 +9,10 @@
 
 #ifndef JIM_H_
 #define JIM_H_
+
+#ifndef JIM_PP
+#define JIM_PP 2
+#endif // JIM_PP
 
 #ifndef JIM_SCOPES_CAPACITY
 #define JIM_SCOPES_CAPACITY 128

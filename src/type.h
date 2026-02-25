@@ -28,5 +28,6 @@ struct zako_type {
 const char *cstr_from_builtin_type(enum ZAKO_BUILTIN_TYPE type);
 
 void free_zako_type(struct zako_type *self);
+void print_type(struct zako_type *self, Jim *jim);
 
 #endif

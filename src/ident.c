@@ -9,3 +9,19 @@ free_zako_ident(struct zako_ident *self)
 	free_zako_type(self->type);
 	free(self);
 }
+
+void
+print_ident(struct zako_ident *self, Jim *jim)
+{
+	Jim fallback = {.pp = JIM_PP};
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "kind");
+	jim_string(jim, "identifier");
+	jim_member_key(jim, "name");
+	jim_string(jim, self->name);
+	jim_member_key(jim, "type");
+	print_type(self->type, jim);
+	jim_object_end(jim);
+}

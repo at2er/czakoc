@@ -6,7 +6,7 @@ BUILD_DIR = build
 
 TARGET = czakoc
 
-SUB_DIRS = src
+SUB_DIRS = src src/compiler src/parser src/semantics
 SRC = $(wildcard *.c $(addsuffix /*.c,$(SUB_DIRS)))
 OBJ = $(addprefix $(BUILD_DIR)/,$(SRC:.c=.o))
 OBJ_DIRS = $(BUILD_DIR) $(addprefix $(BUILD_DIR)/,$(SUB_DIRS))
