@@ -22,6 +22,8 @@ void
 print_expr(struct zako_expr *self, Jim *jim)
 {
 	Jim fallback = {.pp = JIM_PP};
+	if (!self)
+		return;
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);

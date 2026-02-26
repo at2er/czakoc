@@ -9,7 +9,7 @@ free_zako_type(struct zako_type *self)
 {
 	if (!self)
 		return;
-	destory_zako_fn_type(&self->inner.fn);
+	destroy_zako_fn_type(&self->inner.fn);
 	free(self);
 }
 
@@ -17,6 +17,8 @@ void
 print_type(struct zako_type *self, Jim *jim)
 {
 	Jim fallback = {.pp = JIM_PP};
+	if (!self)
+		return;
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);

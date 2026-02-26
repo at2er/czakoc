@@ -28,6 +28,8 @@ void
 print_value(struct zako_value *self, Jim *jim)
 {
 	Jim fallback = {.pp = JIM_PP};
+	if (!self)
+		return;
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);

@@ -14,6 +14,8 @@ void
 print_ident(struct zako_ident *self, Jim *jim)
 {
 	Jim fallback = {.pp = JIM_PP};
+	if (!self)
+		return;
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);

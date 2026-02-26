@@ -23,16 +23,16 @@ compile_file(
 
 	for (size_t i = 0; i < stmts_count; i++) {
 		if (compile_toplevel_stmt(stmts[i], &ctx))
-			goto err_destory_ctx;
+			goto err_destroy_ctx;
 	}
 
 	if (mcb_target_gnu_asm(stdout, &ctx.mcb))
-		goto err_destory_ctx;
+		goto err_destroy_ctx;
 
-	mcb_destory_context(&ctx.mcb);
+	mcb_destroy_context(&ctx.mcb);
 
 	return 0;
-err_destory_ctx:
-	mcb_destory_context(&ctx.mcb);
+err_destroy_ctx:
+	mcb_destroy_context(&ctx.mcb);
 	return 1;
 }

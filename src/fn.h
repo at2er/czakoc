@@ -34,7 +34,7 @@ struct zako_fn_type {
 	struct mcb_func *mcb_fn;
 };
 
-void destory_zako_fn_type(struct zako_fn_type *self);
+void destroy_zako_fn_type(struct zako_fn_type *self);
 void free_zako_fn_call(struct zako_fn_call *self);
 void free_zako_fn_declaration(struct zako_fn_declaration *self);
 void free_zako_fn_definition(struct zako_fn_definition *self);

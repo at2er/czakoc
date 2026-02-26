@@ -22,6 +22,8 @@ int
 get_expr_op_binding_power(enum ZAKO_SYMBOL sym)
 {
 	switch (sym) {
+	case SYM_INFIX_LESS_EQUAL:
+		return 2;
 	case SYM_INFIX_ADD:
 	case SYM_INFIX_SUB:
 		return 0;
@@ -73,7 +75,7 @@ peek_expr_op(struct sclexer_tok *tok, struct parser *parser, bool in_paren)
 	}
 	if (tok->kind != SCLEXER_SYMBOL)
 		return 0;
-	if (tok->data.symbol < SYM_INFIX_ADD)
+	if (tok->data.symbol < SYM_INFIX_LESS_EQUAL)
 		return 0;
 	if (tok->data.symbol > SYM_INFIX_SUB)
 		return 0;

@@ -6,7 +6,7 @@
 #include "value.h"
 
 void
-destory_zako_fn_type(struct zako_fn_type *self)
+destroy_zako_fn_type(struct zako_fn_type *self)
 {
 	for (int i = 0; i < self->argc; i++)
 		free_zako_ident(self->args[i]);
@@ -47,6 +47,8 @@ void
 print_fn_call(struct zako_fn_call *self, Jim *jim)
 {
 	Jim fallback = {.pp = JIM_PP};
+	if (!self)
+		return;
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);
@@ -65,6 +67,8 @@ print_fn_definition(struct zako_fn_definition *self, Jim *jim)
 {
 	Jim fallback = {.pp = JIM_PP};
 	struct zako_fn_type *fn_type;
+	if (!self)
+		return;
 	if (!jim)
 		jim = &fallback;
 	jim_object_begin(jim);

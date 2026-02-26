@@ -42,22 +42,23 @@ void
 print_stmt(struct zako_stmt *self, Jim *jim)
 {
 	Jim fallback = {.pp = JIM_PP};
+	if (!self)
+		return;
 	if (!jim)
 		jim = &fallback;
-	jim_object_begin(jim);
-	jim_member_key(jim, "kind");
 	switch (self->kind) {
 	case IF_STMT:
-		jim_string(jim, "if");
-		// TODO
+		print_if_stmt(self->inner.if_stmt, jim);
 		break;
 	case RETURN_STMT:
-		jim_string(jim, "return");
+		jim_object_begin(jim);
+		jim_member_key(jim, "kind");
+		jim_string(jim, "return stmt");
 		jim_member_key(jim, "expr");
 		print_expr(self->inner.return_stmt->expr, jim);
+		jim_object_end(jim);
 		break;
 	}
-	jim_object_end(jim);
 }
 
 void
