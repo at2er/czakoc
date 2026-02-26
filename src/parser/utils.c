@@ -52,3 +52,30 @@ peek_tok(struct parser *parser)
 	assert(parser->tokens);
 	return &parser->tokens[parser->cur_tok];
 }
+
+struct sclexer_tok *
+peek_tok_to(struct parser *parser, int count)
+{
+	assert(parser);
+	assert(parser->tokens);
+	if (parser->cur_tok + count >= parser->tokens_count)
+		return NULL;
+	return &parser->tokens[parser->cur_tok + count];
+}
+
+struct sclexer_tok *
+peek_tok_skip_white(struct parser *parser)
+{
+	int pos = 1;
+	struct sclexer_tok *tok;
+	assert(parser);
+	tok = peek_tok_to(parser, 0);
+	if (!tok)
+		return NULL;
+	for (; tok->kind == SCLEXER_EOL; pos++) {
+		tok = peek_tok_to(parser, pos);
+		if (!tok)
+			return NULL;
+	}
+	return tok;
+}

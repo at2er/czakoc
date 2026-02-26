@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef CZAKOC_SEMANTICS_H
 #define CZAKOC_SEMANTICS_H
-#include <stdbool.h>
-#include "../expr.h"
 #include "../type.h"
 
 enum ANALYSIS_RESULT {
@@ -13,9 +11,9 @@ enum ANALYSIS_RESULT {
 	TYPE_COMPARE_IMPLICIT_CAST
 };
 
-enum ANALYSIS_RESULT analyse_expr(
-		struct zako_expr *expr,
-		struct zako_type *expect_type);
+enum ANALYSIS_RESULT compare_builtin_type(
+		enum ZAKO_BUILTIN_TYPE src,
+		enum ZAKO_BUILTIN_TYPE expect);
 
 const char *cstr_analysis_result(enum ANALYSIS_RESULT result);
 

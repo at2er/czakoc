@@ -9,21 +9,29 @@
 #include "../lexer.h"
 #include "../panic.h"
 
+enum EXPR_PARSING_MODE {
+	CMP_EXPR_MODE,
+	DEFAULT_EXPR_MODE
+};
+
 static int get_expr_op_binding_power(enum ZAKO_SYMBOL sym);
 static struct zako_expr *merge_expr(
 		struct zako_expr *origin,
 		struct zako_expr *append);
+static struct zako_expr *parse_expr_with_mode(
+		struct parser *parser,
+		bool in_paren,
+		enum EXPR_PARSING_MODE mode);
 static enum ZAKO_SYMBOL peek_expr_op(
 		struct sclexer_tok *tok,
 		struct parser *parser,
-		bool in_paren);
+		bool in_paren,
+		enum EXPR_PARSING_MODE mode);
 
 int
 get_expr_op_binding_power(enum ZAKO_SYMBOL sym)
 {
 	switch (sym) {
-	case SYM_INFIX_LESS_EQUAL:
-		return 2;
 	case SYM_INFIX_ADD:
 	case SYM_INFIX_SUB:
 		return 0;
@@ -66,24 +74,11 @@ merge_expr(struct zako_expr *origin, struct zako_expr *append)
 	return origin;
 }
 
-enum ZAKO_SYMBOL
-peek_expr_op(struct sclexer_tok *tok, struct parser *parser, bool in_paren)
-{
-	if (tok->kind == SCLEXER_EOL && in_paren) {
-		eat_tok(parser);
-		tok = peek_tok(parser);
-	}
-	if (tok->kind != SCLEXER_SYMBOL)
-		return 0;
-	if (tok->data.symbol < SYM_INFIX_LESS_EQUAL)
-		return 0;
-	if (tok->data.symbol > SYM_INFIX_SUB)
-		return 0;
-	return tok->data.symbol;
-}
-
 struct zako_expr *
-parse_expr(struct parser *parser, bool in_paren)
+parse_expr_with_mode(
+		struct parser *parser,
+		bool in_paren,
+		enum EXPR_PARSING_MODE mode)
 {
 	struct zako_expr *expr, *append_expr;
 	enum ZAKO_SYMBOL op = 0;
@@ -97,10 +92,13 @@ parse_expr(struct parser *parser, bool in_paren)
 	expr->kind = PRIMARY_EXPR;
 	expr->inner.primary = value;
 	tok = peek_tok(parser);
-	while ((op = peek_expr_op(tok, parser, in_paren)) != 0) {
+	while ((op = peek_expr_op(tok, parser, in_paren, mode)) != 0) {
 		eat_tok(parser);
 		append_expr = ecalloc(1, sizeof(*append_expr));
-		append_expr->kind = BINARY_EXPR;
+		if (mode == DEFAULT_EXPR_MODE)
+			append_expr->kind = BINARY_EXPR;
+		else
+			append_expr->kind = CMP_EXPR;
 		append_expr->inner.binary.op = op;
 		append_expr->inner.binary.rhs = parse_value(parser);
 		if (expr->kind == PRIMARY_EXPR) {
@@ -108,10 +106,56 @@ parse_expr(struct parser *parser, bool in_paren)
 			free(expr);
 			expr = append_expr;
 		} else {
+			/* in CMP_EXPR_MODE, this branch never be ran */
 			expr = merge_expr(expr, append_expr);
 		}
 		tok = peek_tok(parser);
 	}
 
 	return expr;
+}
+
+enum ZAKO_SYMBOL
+peek_expr_op(
+		struct sclexer_tok *tok,
+		struct parser *parser,
+		bool in_paren,
+		enum EXPR_PARSING_MODE mode)
+{
+	if (tok->kind == SCLEXER_EOL && in_paren) {
+		eat_tok(parser);
+		tok = peek_tok(parser);
+	}
+	if (tok->kind != SCLEXER_SYMBOL)
+		return 0;
+	if (mode == CMP_EXPR_MODE) {
+		if (tok->data.symbol < SYM_INFIX_LESS_EQUAL)
+			return 0;
+		if (tok->data.symbol > SYM_INFIX_LESS_EQUAL)
+			return 0;
+		return tok->data.symbol;
+	}
+	if (tok->data.symbol < SYM_INFIX_ADD)
+		return 0;
+	if (tok->data.symbol > SYM_INFIX_SUB)
+		return 0;
+	return tok->data.symbol;
+}
+
+struct zako_expr *
+parse_cmp_expr(struct parser *parser, bool in_paren)
+{
+	struct zako_expr *expr =
+		parse_expr_with_mode(parser, in_paren, CMP_EXPR_MODE);
+	if (!expr)
+		return NULL;
+	expr->type = ecalloc(1, sizeof(*expr->type));
+	expr->type->builtin = CMP_EXPR_TYPE;
+	return expr;
+}
+
+struct zako_expr *
+parse_expr(struct parser *parser, bool in_paren)
+{
+	return parse_expr_with_mode(parser, in_paren, DEFAULT_EXPR_MODE);
 }

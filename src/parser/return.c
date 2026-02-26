@@ -7,6 +7,7 @@
 #include "../ealloc.h"
 #include "../err.h"
 #include "../return.h"
+#include "../semantics/expr.h"
 #include "../semantics/semantics.h"
 #include "../stmt.h"
 

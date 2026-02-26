@@ -11,13 +11,20 @@ struct zako_binary_expr {
 	struct zako_value *lhs, *rhs;
 };
 
+struct zako_compare_expr {
+	enum ZAKO_SYMBOL op;
+	struct zako_value *lhs, *rhs;
+};
+
 struct zako_expr {
 	enum EXPR_KIND {
 		BINARY_EXPR,
+		CMP_EXPR,
 		PRIMARY_EXPR
 	} kind;
 	union {
 		struct zako_binary_expr binary;
+		struct zako_compare_expr cmp;
 		struct zako_value *primary;
 	} inner;
 

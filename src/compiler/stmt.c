@@ -2,6 +2,7 @@
 #include <assert.h>
 #include "compiler.h"
 #include "fn.h"
+#include "if.h"
 #include "return.h"
 #include "stmt.h"
 #include "../panic.h"
@@ -13,7 +14,7 @@ compile_stmt(struct zako_stmt *stmt, struct compiler_context *ctx)
 	assert(stmt && ctx);
 	switch (stmt->kind) {
 	case IF_STMT:
-		break; // TODO
+		return compile_if_stmt(stmt->inner.if_stmt, ctx);
 	case RETURN_STMT:
 		return compile_return_stmt(stmt->inner.return_stmt, ctx);
 	}

@@ -1,7 +1,7 @@
 fib fn(x i32) i32 =
-	if x <= 2 then return x
+	if x <= 1 then
+		return x
 	return (fib (x - 1)) + (fib (x - 2))
 
 pub main fn(argc i32) i32 =
-	return argc
-	; return fib 35
+	return fib 35

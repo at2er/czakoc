@@ -5,6 +5,7 @@
 #include "parser.h"
 #include "../expr.h"
 
+struct zako_expr *parse_cmp_expr(struct parser *parser, bool in_paren);
 struct zako_expr *parse_expr(struct parser *parser, bool in_paren);
 
 #endif

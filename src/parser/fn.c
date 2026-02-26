@@ -31,17 +31,7 @@ parse_fn_body(struct zako_fn_declaration *declaration, struct parser *parser)
 
 	parser->cur_scope->fn = definition;
 
-	eat_tok(parser);
 	tok = eat_tok_skip_white(parser);
-	if (tok->kind == SCLEXER_EOL) {
-		tok = eat_tok(parser);
-	} else if (tok->kind != SCLEXER_INDENT_BLOCK_BEGIN) {
-		stmt = parse_stmt(tok, parser);
-		if (!stmt)
-			goto err_free_definition;
-		darr_append(definition->stmts, definition->stmts_count, stmt);
-		tok = eat_tok_skip_white(parser);
-	}
 
 	if (tok->kind != SCLEXER_INDENT_BLOCK_BEGIN)
 		goto err_unexpected_token;
@@ -125,6 +115,7 @@ parse_fn_definition(struct sclexer_tok *tok, struct parser *parser, bool public)
 			goto err_unexpected_token;
 		return stmt; /* declaration */
 	}
+	eat_tok(parser);
 	stmt->inner.fn_definition = parse_fn_body(declaration, parser);
 	if (!stmt->inner.fn_definition)
 		goto err_parse_fn_body;

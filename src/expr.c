@@ -11,6 +11,13 @@ free_zako_expr(struct zako_expr *self)
 		free_zako_value(self->inner.binary.lhs);
 		free_zako_value(self->inner.binary.rhs);
 		break;
+	case CMP_EXPR:
+		free_zako_type(self->type);
+		free_zako_type(self->inner.cmp.lhs->type);
+		free_zako_type(self->inner.cmp.rhs->type);
+		free_zako_value(self->inner.cmp.lhs);
+		free_zako_value(self->inner.cmp.rhs);
+		break;
 	case PRIMARY_EXPR:
 		free_zako_value(self->inner.primary);
 		break;
@@ -37,6 +44,15 @@ print_expr(struct zako_expr *self, Jim *jim)
 		print_value(self->inner.binary.lhs, jim);
 		jim_member_key(jim, "rhs");
 		print_value(self->inner.binary.rhs, jim);
+		break;
+	case CMP_EXPR:
+		jim_string(jim, "comparison");
+		jim_member_key(jim, "op");
+		jim_string(jim, cstr_symbol(self->inner.cmp.op));
+		jim_member_key(jim, "lhs");
+		print_value(self->inner.cmp.lhs, jim);
+		jim_member_key(jim, "rhs");
+		print_value(self->inner.cmp.rhs, jim);
 		break;
 	case PRIMARY_EXPR:
 		jim_string(jim, "primary");
