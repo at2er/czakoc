@@ -35,9 +35,9 @@ struct zako_fn_type {
 };
 
 void destroy_zako_fn_type(struct zako_fn_type *self);
-void free_zako_fn_call(struct zako_fn_call *self);
-void free_zako_fn_declaration(struct zako_fn_declaration *self);
-void free_zako_fn_definition(struct zako_fn_definition *self);
+void free_fn_call(struct zako_fn_call *self);
+void free_fn_declaration(struct zako_fn_declaration *self);
+void free_fn_definition(struct zako_fn_definition *self);
 void print_fn_call(struct zako_fn_call *self, Jim *jim);
 void print_fn_definition(struct zako_fn_definition *self, Jim *jim);
 

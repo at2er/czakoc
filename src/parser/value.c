@@ -57,7 +57,7 @@ parse_value(struct parser *parser)
 	return value;
 err_expr_not_end:
 	print_err("expression not end", tok);
-	free_zako_expr(value->data.expr);
+	free_expr(value->data.expr);
 	goto err_free_value;
 err_ident_not_found:
 	printf_err("identifier '%s' not found", tok, ident_name);

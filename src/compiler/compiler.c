@@ -8,7 +8,6 @@
 #include "compiler.h"
 #include "stmt.h"
 
-
 int
 compile_file(
 		struct zako_toplevel_stmt **stmts,

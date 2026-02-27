@@ -26,7 +26,7 @@ struct zako_type {
 	} inner;
 };
 
-void free_zako_type(struct zako_type *self);
+void free_type(struct zako_type *self);
 enum ZAKO_BUILTIN_TYPE get_builtin_type_from_int_literal(int64_t i);
 void print_type(struct zako_type *self, Jim *jim);
 

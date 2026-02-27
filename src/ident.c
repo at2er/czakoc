@@ -3,10 +3,10 @@
 #include "ident.h"
 
 void
-free_zako_ident(struct zako_ident *self)
+free_ident(struct zako_ident *self)
 {
 	free(self->name);
-	free_zako_type(self->type);
+	free_type(self->type);
 	free(self);
 }
 

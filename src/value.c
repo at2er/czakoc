@@ -6,16 +6,16 @@
 #include "value.h"
 
 void
-free_zako_value(struct zako_value *self)
+free_value(struct zako_value *self)
 {
 	if (!self)
 		return;
 	switch (self->kind) {
 	case EXPR_VALUE:
-		free_zako_expr(self->data.expr);
+		free_expr(self->data.expr);
 		break;
 	case FN_CALL_VALUE:
-		free_zako_fn_call(self->data.fn_call);
+		free_fn_call(self->data.fn_call);
 		break;
 	case IDENT_VALUE:
 	case INT_LITERAL:

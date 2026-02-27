@@ -87,7 +87,7 @@ end:
 
 	exit_scope(&parser);
 	for (size_t i = 0; i < stmts_count; i++)
-		free_zako_toplevel_stmt(stmts[i]);
+		free_toplevel_stmt(stmts[i]);
 	free(stmts);
 	free(parser.tokens);
 

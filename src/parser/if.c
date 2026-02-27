@@ -75,6 +75,6 @@ err_not_cmp:
 err_analyse_if_stmt:
 	printf_err("if stmt: %s", begin, cstr_analysis_result(ret));
 err_free_stmt:
-	free_zako_stmt(stmt);
+	free_stmt(stmt);
 	return NULL;
 }

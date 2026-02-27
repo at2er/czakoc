@@ -4,10 +4,10 @@
 #include "return.h"
 
 void
-free_zako_return_stmt(struct zako_return_stmt *self)
+free_return_stmt(struct zako_return_stmt *self)
 {
 	if (!self)
 		return;
-	free_zako_expr(self->expr);
+	free_expr(self->expr);
 	free(self);
 }

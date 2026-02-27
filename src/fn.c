@@ -9,39 +9,39 @@ void
 destroy_zako_fn_type(struct zako_fn_type *self)
 {
 	for (int i = 0; i < self->argc; i++)
-		free_zako_ident(self->args[i]);
+		free_ident(self->args[i]);
 	free(self->args);
-	free_zako_type(self->type);
+	free_type(self->type);
 }
 
 void
-free_zako_fn_call(struct zako_fn_call *self)
+free_fn_call(struct zako_fn_call *self)
 {
 	if (!self)
 		return;
 	for (int i = 0; i < self->argc; i++)
-		free_zako_value(self->args[i]);
+		free_value(self->args[i]);
 	free(self->args);
 	free(self);
 }
 
 void
-free_zako_fn_declaration(struct zako_fn_declaration *self)
+free_fn_declaration(struct zako_fn_declaration *self)
 {
 	if (!self)
 		return;
-	free_zako_ident(self->ident);
+	free_ident(self->ident);
 	free(self);
 }
 
 void
-free_zako_fn_definition(struct zako_fn_definition *self)
+free_fn_definition(struct zako_fn_definition *self)
 {
 	if (!self)
 		return;
-	free_zako_fn_declaration(self->declaration);
+	free_fn_declaration(self->declaration);
 	for (size_t i = 0; i < self->stmts_count; i++)
-		free_zako_stmt(self->stmts[i]);
+		free_stmt(self->stmts[i]);
 	free(self->stmts);
 	free(self);
 }

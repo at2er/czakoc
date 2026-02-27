@@ -3,36 +3,40 @@
 #include "expr.h"
 #include "fn.h"
 #include "if.h"
+#include "let.h"
 #include "return.h"
 #include "stmt.h"
 
 void
-free_zako_stmt(struct zako_stmt *self)
+free_stmt(struct zako_stmt *self)
 {
 	if (!self)
 		return;
 	switch (self->kind) {
 	case IF_STMT:
-		free_zako_if_stmt(self->inner.if_stmt);
+		free_if_stmt(self->inner.if_stmt);
+		break;
+	case LET_STMT:
+		free_let_stmt(self->inner.let_stmt);
 		break;
 	case RETURN_STMT:
-		free_zako_return_stmt(self->inner.return_stmt);
+		free_return_stmt(self->inner.return_stmt);
 		break;
 	}
 	free(self);
 }
 
 void
-free_zako_toplevel_stmt(struct zako_toplevel_stmt *self)
+free_toplevel_stmt(struct zako_toplevel_stmt *self)
 {
 	if (!self)
 		return;
 	switch (self->kind) {
 	case FN_DECLARATION:
-		free_zako_fn_declaration(self->inner.fn_declaration);
+		free_fn_declaration(self->inner.fn_declaration);
 		break;
 	case FN_DEFINITION:
-		free_zako_fn_definition(self->inner.fn_definition);
+		free_fn_definition(self->inner.fn_definition);
 		break;
 	}
 	free(self);
@@ -49,6 +53,9 @@ print_stmt(struct zako_stmt *self, Jim *jim)
 	switch (self->kind) {
 	case IF_STMT:
 		print_if_stmt(self->inner.if_stmt, jim);
+		break;
+	case LET_STMT:
+		print_let_stmt(self->inner.let_stmt, jim);
 		break;
 	case RETURN_STMT:
 		jim_object_begin(jim);

@@ -31,7 +31,7 @@ struct zako_expr {
 	struct zako_type *type;
 };
 
-void free_zako_expr(struct zako_expr *self);
+void free_expr(struct zako_expr *self);
 void print_expr(struct zako_expr *self, Jim *jim);
 
 #endif

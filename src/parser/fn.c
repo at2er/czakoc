@@ -53,7 +53,7 @@ parse_fn_body(struct zako_fn_declaration *declaration, struct parser *parser)
 err_unexpected_token:
 	print_err("unexpected token", tok);
 err_free_definition:
-	free_zako_fn_definition(definition);
+	free_fn_definition(definition);
 	return NULL;
 }
 
@@ -96,7 +96,7 @@ parse_fn_call(struct zako_ident *callee,
 	}
 	return call;
 err_free_call:
-	free_zako_fn_call(call);
+	free_fn_call(call);
 	return NULL;
 }
 
@@ -134,7 +134,7 @@ err_unexpected_token:
 	print_err("unexpected token", tok);
 err_parse_fn_body:
 	stmt->inner.fn_declaration = declaration;
-	free_zako_toplevel_stmt(stmt);
+	free_toplevel_stmt(stmt);
 	return NULL;
 }
 

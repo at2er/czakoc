@@ -35,6 +35,6 @@ parse_return_stmt(struct parser *parser)
 err_analyse_expr:
 	printf_err("return stmt: %s", begin, cstr_analysis_result(ret));
 err_free_stmt:
-	free_zako_stmt(stmt);
+	free_stmt(stmt);
 	return NULL;
 }

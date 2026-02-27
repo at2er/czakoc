@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "fn.h"
 #include "if.h"
+#include "let.h"
 #include "parser.h"
 #include "return.h"
 #include "sclexer.h"
@@ -18,6 +19,8 @@ parse_stmt(struct sclexer_tok *tok, struct parser *parser)
 	switch (tok->data.keyword) {
 	case KEYWORD_IF:
 		return parse_if_stmt(parser);
+	case KEYWORD_LET:
+		return parse_let_stmt(parser);
 	case KEYWORD_RETURN:
 		return parse_return_stmt(parser);
 	default:

@@ -7,6 +7,7 @@ static const char *comments[1] = {";"};
 static const char *keywords[] = {
 	[KEYWORD_FN]     = "fn",
 	[KEYWORD_IF]     = "if",
+	[KEYWORD_LET]    = "let",
 	[KEYWORD_PUB]    = "pub",
 	[KEYWORD_RETURN] = "return",
 	[KEYWORD_THEN]   = "then",

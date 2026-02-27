@@ -3,13 +3,19 @@
 #define CZAKOC_STMT_H
 #include "jim2.h"
 
+struct zako_if_stmt;
+struct zako_let_stmt;
+struct zako_return_stmt;
+
 struct zako_stmt {
 	enum STMT_KIND {
 		IF_STMT,
+		LET_STMT,
 		RETURN_STMT
 	} kind;
 	union {
 		struct zako_if_stmt *if_stmt;
+		struct zako_let_stmt *let_stmt;
 		struct zako_return_stmt *return_stmt;
 	} inner;
 };
@@ -25,8 +31,8 @@ struct zako_toplevel_stmt {
 	} inner;
 };
 
-void free_zako_stmt(struct zako_stmt *self);
-void free_zako_toplevel_stmt(struct zako_toplevel_stmt *self);
+void free_stmt(struct zako_stmt *self);
+void free_toplevel_stmt(struct zako_toplevel_stmt *self);
 void print_stmt(struct zako_stmt *self, Jim *jim);
 void print_toplevel_stmt(struct zako_toplevel_stmt *self, Jim *jim);
 

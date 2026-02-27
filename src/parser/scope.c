@@ -5,19 +5,6 @@
 #include "../ealloc.h"
 #include "../ident.h"
 
-static void free_ident_in_scope(size_t idx, struct zako_scope *scope);
-
-void
-free_ident_in_scope(size_t idx, struct zako_scope *scope)
-{
-	if (!scope->fn)
-		return;
-	if (scope->idents[idx] == scope->fn->declaration->ident
-			->type->inner.fn.args[idx])
-		return;
-	free_zako_ident(scope->idents[idx]);
-}
-
 void
 enter_scope(struct parser *parser)
 {
@@ -37,8 +24,7 @@ exit_scope(struct parser *parser)
 	assert(parser->cur_scope);
 	self = parser->cur_scope;
 	parser->cur_scope = parser->cur_scope->parent;
-	for (size_t i = 0; i < self->idents_count; i++)
-		free_ident_in_scope(i, self);
+	/* elements of self->idents will be freed by parser. */
 	free(self->idents);
 	free(self);
 }

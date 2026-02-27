@@ -7,7 +7,7 @@
 #include "type.h"
 
 void
-free_zako_type(struct zako_type *self)
+free_type(struct zako_type *self)
 {
 	if (!self)
 		return;

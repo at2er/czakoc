@@ -2,26 +2,26 @@
 #include "expr.h"
 
 void
-free_zako_expr(struct zako_expr *self)
+free_expr(struct zako_expr *self)
 {
 	if (!self)
 		return;
 	switch (self->kind) {
 	case BINARY_EXPR:
-		free_zako_value(self->inner.binary.lhs);
-		free_zako_value(self->inner.binary.rhs);
+		free_value(self->inner.binary.lhs);
+		free_value(self->inner.binary.rhs);
 		break;
 	case CMP_EXPR:
-		free_zako_type(self->type);
+		free_type(self->type);
 		if (self->inner.cmp.lhs->kind == INT_LITERAL)
-			free_zako_type(self->inner.cmp.lhs->type);
+			free_type(self->inner.cmp.lhs->type);
 		if (self->inner.cmp.rhs->kind == INT_LITERAL)
-			free_zako_type(self->inner.cmp.rhs->type);
-		free_zako_value(self->inner.cmp.lhs);
-		free_zako_value(self->inner.cmp.rhs);
+			free_type(self->inner.cmp.rhs->type);
+		free_value(self->inner.cmp.lhs);
+		free_value(self->inner.cmp.rhs);
 		break;
 	case PRIMARY_EXPR:
-		free_zako_value(self->inner.primary);
+		free_value(self->inner.primary);
 		break;
 	}
 	free(self);

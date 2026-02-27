@@ -17,7 +17,7 @@ struct zako_ident {
 	struct mcb_value *value;
 };
 
-void free_zako_ident(struct zako_ident *self);
+void free_ident(struct zako_ident *self);
 void print_ident(struct zako_ident *self, Jim *jim);
 
 #endif

@@ -10,7 +10,7 @@ struct zako_if_stmt {
 	size_t stmts_count;
 };
 
-void free_zako_if_stmt(struct zako_if_stmt *self);
+void free_if_stmt(struct zako_if_stmt *self);
 void print_if_stmt(struct zako_if_stmt *self, Jim *jim);
 
 #endif

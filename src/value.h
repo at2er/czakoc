@@ -26,7 +26,7 @@ struct zako_value {
 	struct zako_type *type;
 };
 
-void free_zako_value(struct zako_value *self);
+void free_value(struct zako_value *self);
 void print_value(struct zako_value *self, Jim *jim);
 
 #endif
