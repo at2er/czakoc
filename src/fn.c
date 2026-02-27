@@ -11,6 +11,7 @@ destroy_zako_fn_type(struct zako_fn_type *self)
 	for (int i = 0; i < self->argc; i++)
 		free_zako_ident(self->args[i]);
 	free(self->args);
+	free_zako_type(self->type);
 }
 
 void
@@ -20,6 +21,7 @@ free_zako_fn_call(struct zako_fn_call *self)
 		return;
 	for (int i = 0; i < self->argc; i++)
 		free_zako_value(self->args[i]);
+	free(self->args);
 	free(self);
 }
 
@@ -37,6 +39,7 @@ free_zako_fn_definition(struct zako_fn_definition *self)
 {
 	if (!self)
 		return;
+	free_zako_fn_declaration(self->declaration);
 	for (size_t i = 0; i < self->stmts_count; i++)
 		free_zako_stmt(self->stmts[i]);
 	free(self->stmts);

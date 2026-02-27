@@ -17,7 +17,7 @@ parse_value(struct parser *parser)
 	struct sclexer_tok *tok;
 	assert(parser);
 	tok = eat_tok(parser);
-	value = ecalloc(1, sizeof(value));
+	value = ecalloc(1, sizeof(*value));
 
 	if (tok->kind == SCLEXER_SYMBOL && tok->data.symbol == SYM_PAREN_L) {
 		value->kind = EXPR_VALUE;

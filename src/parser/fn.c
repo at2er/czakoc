@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "fn.h"
+#include "parser.h"
 #include "sclexer.h"
 #include "scope.h"
 #include "stmt.h"
@@ -17,6 +18,10 @@
 static struct zako_fn_definition *parse_fn_body(
 		struct zako_fn_declaration *declaration,
 		struct parser *parser);
+static struct zako_fn_declaration *parse_fn_declaration(
+		struct sclexer_tok *tok,
+		struct parser *parser,
+		bool public);
 
 struct zako_fn_definition *
 parse_fn_body(struct zako_fn_declaration *declaration, struct parser *parser)
@@ -44,14 +49,34 @@ parse_fn_body(struct zako_fn_declaration *declaration, struct parser *parser)
 		tok = eat_tok_skip_white(parser);
 	}
 
-	parser->cur_scope->fn = NULL;
-
 	return definition;
 err_unexpected_token:
 	print_err("unexpected token", tok);
 err_free_definition:
 	free_zako_fn_definition(definition);
 	return NULL;
+}
+
+struct zako_fn_declaration *
+parse_fn_declaration(
+		struct sclexer_tok *tok,
+		struct parser *parser,
+		bool public)
+{
+	struct zako_fn_declaration *declaration;
+	struct zako_ident *ident;
+	assert(tok && parser);
+	assert(tok->kind == SCLEXER_IDENT);
+	ident = parse_ident_sign(tok, parser);
+	if (!ident)
+		return NULL;
+	declaration = ecalloc(1, sizeof(*declaration));
+	declaration->ident = ident;
+	declaration->public = public;
+	darr_append(parser->cur_scope->parent->idents,
+			parser->cur_scope->parent->idents_count,
+			ident);
+	return declaration;
 }
 
 struct zako_fn_call *
@@ -75,34 +100,15 @@ err_free_call:
 	return NULL;
 }
 
-struct zako_fn_declaration *
-parse_fn_declaration(
-		struct sclexer_tok *tok,
-		struct parser *parser,
-		bool public)
-{
-	struct zako_fn_declaration *declaration;
-	struct zako_ident *ident;
-	assert(tok && parser);
-	assert(tok->kind == SCLEXER_IDENT);
-	ident = parse_ident_sign(tok, parser);
-	if (!ident)
-		return NULL;
-	declaration = ecalloc(1, sizeof(*declaration));
-	declaration->ident = ident;
-	declaration->public = public;
-	darr_append(parser->cur_scope->idents,
-			parser->cur_scope->idents_count,
-			ident);
-	return declaration;
-}
-
 struct zako_toplevel_stmt *
 parse_fn_definition(struct sclexer_tok *tok, struct parser *parser, bool public)
 {
 	struct zako_fn_declaration *declaration;
 	struct zako_toplevel_stmt *stmt;
 	assert(tok && parser);
+
+	enter_scope(parser);
+
 	declaration = parse_fn_declaration(tok, parser, public);
 	if (!declaration)
 		return NULL;
@@ -120,6 +126,9 @@ parse_fn_definition(struct sclexer_tok *tok, struct parser *parser, bool public)
 	if (!stmt->inner.fn_definition)
 		goto err_parse_fn_body;
 	stmt->kind = FN_DEFINITION;
+
+	exit_scope(parser);
+
 	return stmt;
 err_unexpected_token:
 	print_err("unexpected token", tok);

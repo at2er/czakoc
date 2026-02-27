@@ -109,6 +109,8 @@ parse_expr_with_mode(
 			/* in CMP_EXPR_MODE, this branch never be ran */
 			expr = merge_expr(expr, append_expr);
 		}
+		if (expr->kind == CMP_EXPR)
+			break;
 		tok = peek_tok(parser);
 	}
 

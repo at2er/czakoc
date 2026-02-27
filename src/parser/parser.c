@@ -46,7 +46,7 @@ parse_file(const char *path)
 	size_t stmts_count = 0;
 	assert(path);
 
-	parser.cur_scope = ecalloc(1, sizeof(*parser.cur_scope));
+	enter_scope(&parser);
 
 	mod = ecalloc(1, sizeof(*mod));
 	strcpy(mod->file_path, path);
@@ -84,6 +84,13 @@ end:
 		print_ast_by_jim(stmts, stmts_count);
 	if (compile_file(stmts, stmts_count, mod))
 		goto err_compile_file;
+
+	exit_scope(&parser);
+	for (size_t i = 0; i < stmts_count; i++)
+		free_zako_toplevel_stmt(stmts[i]);
+	free(stmts);
+	free(parser.tokens);
+
 	free(src);
 	return mod;
 err_unknown_token:

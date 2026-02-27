@@ -5,6 +5,7 @@
 #include "fn.h"
 #include "ident.h"
 
+struct zako_parser;
 struct zako_scope {
 	struct zako_ident **idents;
 	size_t idents_count;
@@ -13,6 +14,8 @@ struct zako_scope {
 	struct zako_scope *parent;
 };
 
+void enter_scope(struct parser *parser);
+void exit_scope(struct parser *parser);
 struct zako_ident *find_ident_in_scope(
 		const char *name,
 		struct zako_scope *scope);

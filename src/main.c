@@ -51,13 +51,16 @@ parse_cmdline_args(int argc, char *argv[])
 int
 main(int argc, char *argv[])
 {
+	struct zako_module *mod;
 	if (parse_cmdline_args(argc, argv))
 		return 1;
 	if (!entry_file) {
 		print_err_msg("no input file");
 		return 1;
 	}
-	if (!parse_file(entry_file))
+	mod = parse_file(entry_file);
+	if (!mod)
 		return 1;
+	free(mod);
 	return 0;
 }

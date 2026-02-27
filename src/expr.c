@@ -13,8 +13,10 @@ free_zako_expr(struct zako_expr *self)
 		break;
 	case CMP_EXPR:
 		free_zako_type(self->type);
-		free_zako_type(self->inner.cmp.lhs->type);
-		free_zako_type(self->inner.cmp.rhs->type);
+		if (self->inner.cmp.lhs->kind == INT_LITERAL)
+			free_zako_type(self->inner.cmp.lhs->type);
+		if (self->inner.cmp.rhs->kind == INT_LITERAL)
+			free_zako_type(self->inner.cmp.rhs->type);
 		free_zako_value(self->inner.cmp.lhs);
 		free_zako_value(self->inner.cmp.rhs);
 		break;

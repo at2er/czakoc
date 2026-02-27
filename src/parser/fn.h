@@ -10,10 +10,6 @@
 struct zako_fn_call *parse_fn_call(
 		struct zako_ident *callee,
 		struct parser *parser);
-struct zako_fn_declaration *parse_fn_declaration(
-		struct sclexer_tok *tok,
-		struct parser *parser,
-		bool public);
 struct zako_toplevel_stmt *parse_fn_definition(
 		struct sclexer_tok *tok,
 		struct parser *parser,
