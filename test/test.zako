@@ -1,4 +1,3 @@
 pub main fn(argc i32) i32 =
-	let mut a i32 = 0
-	a = argc
+	let a [i32, 2] = {0, 1}
 	return a

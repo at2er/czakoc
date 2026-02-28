@@ -15,6 +15,8 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 {
 	struct mcb_value *mcb_val;
 	switch (value->kind) {
+	case ELEM_INIT_VALUE:
+		break; //TODO
 	case EXPR_VALUE:
 		return compile_expr(value->data.expr, ctx);
 	case FN_CALL_VALUE:

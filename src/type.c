@@ -6,13 +6,30 @@
 #include "panic.h"
 #include "type.h"
 
+static void destroy_arr_type(struct zako_arr_type *self);
+
+void
+destroy_arr_type(struct zako_arr_type *self)
+{
+	if (!self)
+		return;
+}
+
 void
 free_type(struct zako_type *self)
 {
 	if (!self)
 		return;
-	if (self->builtin == FN_TYPE)
-		destroy_zako_fn_type(&self->inner.fn);
+	switch (self->builtin) {
+	CASE_NUMBERS:
+		break;
+	case ARR_TYPE:
+		destroy_arr_type(&self->inner.arr);
+	case CMP_EXPR_TYPE:
+		break;
+	case FN_TYPE:
+		destroy_fn_type(&self->inner.fn);
+	}
 	free(self);
 }
 

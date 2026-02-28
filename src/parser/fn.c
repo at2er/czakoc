@@ -196,6 +196,6 @@ err_unexpected_token:
 	print_err("unexpected token", tok);
 	return 1;
 err_free_args:
-	destroy_zako_fn_type(type);
+	destroy_fn_type(type);
 	return 1;
 }

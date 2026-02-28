@@ -14,6 +14,8 @@ analyse_value(struct zako_value *value, struct zako_type *expect_type)
 	int ret;
 	assert(value && expect_type);
 	switch (value->kind) {
+	case ELEM_INIT_VALUE:
+		break; //TODO
 	case EXPR_VALUE:
 		ret = analyse_expr(value->data.expr, expect_type);
 		if (ret)

@@ -5,12 +5,40 @@
 #include "ident.h"
 #include "value.h"
 
+void destroy_elem_init(struct zako_elem_init_value *self);
+void print_elem_init_value(struct zako_elem_init_value *self, Jim *jim);
+
+void
+destroy_elem_init(struct zako_elem_init_value *self)
+{
+	if (!self)
+		return;
+	for (size_t i = 0; i < self->elems_count; i++)
+		free_value(self->elems[i]);
+	free(self->elems);
+}
+
+void
+print_elem_init_value(struct zako_elem_init_value *self, Jim *jim)
+{
+	assert(jim);
+	if (!self)
+		return;
+	jim_array_begin(jim);
+	for (size_t i = 0; i < self->elems_count; i++)
+		print_value(self->elems[i], jim);
+	jim_array_end(jim);
+}
+
 void
 free_value(struct zako_value *self)
 {
 	if (!self)
 		return;
 	switch (self->kind) {
+	case ELEM_INIT_VALUE:
+		destroy_elem_init(&self->data.elem_init);
+		break;
 	case EXPR_VALUE:
 		free_expr(self->data.expr);
 		break;
@@ -36,6 +64,10 @@ print_value(struct zako_value *self, Jim *jim)
 	jim_member_key(jim, "kind");
 	jim_string(jim, "value");
 	switch (self->kind) {
+	case ELEM_INIT_VALUE:
+		jim_member_key(jim, "element initialization");
+		print_elem_init_value(&self->data.elem_init, jim);
+		break;
 	case EXPR_VALUE:
 		jim_member_key(jim, "expr");
 		print_expr(self->data.expr, jim);

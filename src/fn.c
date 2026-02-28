@@ -6,7 +6,7 @@
 #include "value.h"
 
 void
-destroy_zako_fn_type(struct zako_fn_type *self)
+destroy_fn_type(struct zako_fn_type *self)
 {
 	for (int i = 0; i < self->argc; i++)
 		free_ident(self->args[i]);

@@ -24,6 +24,10 @@ static const char *keywords[] = {
 };
 
 static const char *symbols[] = {
+	[SYM_BRACE_L]          = "{",
+	[SYM_BRACE_R]          = "}",
+	[SYM_BRACKET_L]        = "[",
+	[SYM_BRACKET_R]        = "]",
 	[SYM_PAREN_L]          = "(",
 	[SYM_PAREN_R]          = ")",
 	[SYM_ASSIGN]           = "=",
