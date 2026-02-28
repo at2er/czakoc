@@ -11,6 +11,10 @@
 #include "../lexer.h"
 #include "../value.h"
 
+static int parse_arr_elem_value(
+		struct zako_value *value,
+		struct zako_ident *arr,
+		struct parser *parser);
 static int parse_elem_init_value(struct zako_value *value, struct parser *parser);
 static int parse_expr_value(struct zako_value *value, struct parser *parser);
 static int parse_value_by_sclexer_symbol(
@@ -21,6 +25,36 @@ static int parse_value_by_sclexer_ident(
 		struct sclexer_tok *tok,
 		struct zako_value *value,
 		struct parser *parser);
+
+int
+parse_arr_elem_value(
+		struct zako_value *value,
+		struct zako_ident *arr,
+		struct parser *parser)
+{
+	struct sclexer_tok *tok;
+	assert(value && arr && parser);
+
+	tok = eat_tok(parser);
+	if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_BRACKET_L)
+		goto err_unexpected_token;
+
+	tok = eat_tok(parser);
+	if (tok->kind != SCLEXER_INT)
+		goto err_unexpected_token;
+	value->kind = ARR_ELEM_VALUE;
+	value->data.arr_elem.arr = arr;
+	value->data.arr_elem.idx = tok->data.uint;
+
+	tok = eat_tok(parser);
+	if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_BRACKET_R)
+		goto err_unexpected_token;
+
+	return 0;
+err_unexpected_token:
+	print_err("unexpected token", tok);
+	return 1;
+}
 
 int
 parse_elem_init_value(struct zako_value *value, struct parser *parser)
@@ -98,25 +132,31 @@ parse_value_by_sclexer_ident(
 		struct zako_value *value,
 		struct parser *parser)
 {
+	struct zako_ident *ident;
 	char *ident_name;
 	assert(tok && value && parser);
 	assert(tok->kind == SCLEXER_IDENT);
 	ident_name = dup_slice_to_cstr(&tok->data.str);
 	value->kind = IDENT_VALUE;
-	value->data.ident = find_ident_in_scope(
+	value->data.ident = ident = find_ident_in_scope(
 			ident_name,
 			parser->cur_scope);
 	if (!value->data.ident)
 		goto err_ident_not_found;
 
 	free(ident_name);
-	if (value->data.ident->type->builtin == FN_TYPE) {
+
+	switch (ident->type->builtin) {
+	case ARR_TYPE:
+		return parse_arr_elem_value(value, ident, parser);
+	case FN_TYPE:
 		value->kind = FN_CALL_VALUE;
-		value->data.fn_call = parse_fn_call(
-				value->data.ident,
-				parser);
+		value->data.fn_call = parse_fn_call(ident, parser);
 		if (!value->data.fn_call)
 			return 1;
+		break;
+	default:
+		break;
 	}
 
 	return 0;

@@ -8,8 +8,13 @@
 struct zako_expr;
 struct zako_fn_call;
 struct zako_ident;
-
 struct zako_value;
+
+struct zako_arr_elem_value {
+	struct zako_ident *arr;
+	size_t idx;
+};
+
 struct zako_elem_init_value {
 	struct zako_value **elems;
 	size_t elems_count;
@@ -17,6 +22,7 @@ struct zako_elem_init_value {
 
 struct zako_value {
 	enum VALUE_KIND {
+		ARR_ELEM_VALUE,
 		ELEM_INIT_VALUE,
 		EXPR_VALUE,
 		FN_CALL_VALUE,
@@ -24,6 +30,7 @@ struct zako_value {
 		INT_LITERAL
 	} kind;
 	union {
+		struct zako_arr_elem_value arr_elem;
 		struct zako_elem_init_value elem_init;
 		struct zako_expr *expr;
 		struct zako_fn_call *fn_call;

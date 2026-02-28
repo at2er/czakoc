@@ -99,7 +99,8 @@ compile_expr(struct zako_expr *expr, struct compiler_context *ctx)
 	case BINARY_EXPR:
 		return compile_binary_expr(&expr->inner.binary, ctx);
 	case CMP_EXPR:
-		break; // TODO
+		panic("expr->kind == CMP_EXPR");
+		break;
 	case PRIMARY_EXPR:
 		return compile_primary_expr(expr->inner.primary, ctx);
 	}

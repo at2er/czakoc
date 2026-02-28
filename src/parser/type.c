@@ -35,7 +35,7 @@ parse_arr_type(
 	if (tok->kind != SCLEXER_SYMBOL)
 		goto err_unexpected_token;
 	/* dynamic array is unsupport now */
-	if (tok->data.symbol != SYM_COMMA)
+	if (tok->data.symbol != SYM_SEMICOLON)
 		goto err_unexpected_symbol;
 
 	tok = eat_tok(parser);

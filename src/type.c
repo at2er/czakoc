@@ -60,12 +60,23 @@ print_type(struct zako_type *self, Jim *jim)
 	jim_member_key(jim, "kind");
 	jim_string(jim, "type");
 	jim_member_key(jim, "builtin");
-	if (self->builtin <= U64_TYPE) {
+	switch (self->builtin) {
+	CASE_NUMBERS:
 		jim_string(jim, cstr_keyword(KEYWORD_I8 + self->builtin));
-	} else if (self->builtin == CMP_EXPR_TYPE) {
+		break;
+	case ARR_TYPE:
+		jim_string(jim, "array");
+		jim_member_key(jim, "size");
+		jim_integer(jim, self->inner.arr.size);
+		jim_member_key(jim, "element type");
+		print_type(self->inner.arr.elem_type, jim);
+		break;
+	case CMP_EXPR_TYPE:
 		jim_string(jim, "comparison");
-	} else if (self->builtin == FN_TYPE) {
+		break;
+	case FN_TYPE:
 		jim_string(jim, "function");
+		break;
 	}
 	jim_object_end(jim);
 }

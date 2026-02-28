@@ -6,6 +6,7 @@
 #include "value.h"
 
 void destroy_elem_init(struct zako_elem_init_value *self);
+void print_arr_elem_value(struct zako_arr_elem_value *self, Jim *jim);
 void print_elem_init_value(struct zako_elem_init_value *self, Jim *jim);
 
 void
@@ -16,6 +17,20 @@ destroy_elem_init(struct zako_elem_init_value *self)
 	for (size_t i = 0; i < self->elems_count; i++)
 		free_value(self->elems[i]);
 	free(self->elems);
+}
+
+void
+print_arr_elem_value(struct zako_arr_elem_value *self, Jim *jim)
+{
+	assert(jim);
+	if (!self)
+		return;
+	jim_object_begin(jim);
+	jim_member_key(jim, "arr");
+	print_ident(self->arr, jim);
+	jim_member_key(jim, "index");
+	jim_integer(jim, self->idx);
+	jim_object_end(jim);
 }
 
 void
@@ -36,6 +51,8 @@ free_value(struct zako_value *self)
 	if (!self)
 		return;
 	switch (self->kind) {
+	case ARR_ELEM_VALUE:
+		break;
 	case ELEM_INIT_VALUE:
 		destroy_elem_init(&self->data.elem_init);
 		break;
@@ -64,6 +81,10 @@ print_value(struct zako_value *self, Jim *jim)
 	jim_member_key(jim, "kind");
 	jim_string(jim, "value");
 	switch (self->kind) {
+	case ARR_ELEM_VALUE:
+		jim_member_key(jim, "array element");
+		print_arr_elem_value(&self->data.arr_elem, jim);
+		break;
 	case ELEM_INIT_VALUE:
 		jim_member_key(jim, "element initialization");
 		print_elem_init_value(&self->data.elem_init, jim);

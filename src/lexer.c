@@ -2,7 +2,7 @@
 #include "lexer.h"
 #include "macros.h"
 
-static const char *comments[1] = {";"};
+static const char *comments[1] = {"--"};
 
 static const char *keywords[] = {
 	[KEYWORD_FN]     = "fn",
@@ -32,6 +32,7 @@ static const char *symbols[] = {
 	[SYM_PAREN_R]          = ")",
 	[SYM_ASSIGN]           = "=",
 	[SYM_COMMA]            = ",",
+	[SYM_SEMICOLON]        = ";",
 	[SYM_INFIX_LESS_EQUAL] = "<=",
 	[SYM_INFIX_ADD]        = "+",
 	[SYM_INFIX_DIV]        = "/",
