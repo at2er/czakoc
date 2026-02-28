@@ -5,6 +5,8 @@
 void
 free_ident(struct zako_ident *self)
 {
+	if (!self)
+		return;
 	free(self->name);
 	free_type(self->type);
 	free(self);

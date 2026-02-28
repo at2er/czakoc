@@ -22,8 +22,7 @@ parse_arr_type(
 
 	assert(tok && parser);
 	assert(tok->kind == SCLEXER_SYMBOL);
-	if (tok->data.symbol != SYM_BRACKET_L)
-		goto err_unexpected_symbol;
+	assert(tok->data.symbol == SYM_BRACKET_L);
 
 	type = ecalloc(1, sizeof(*type));
 	type->builtin = ARR_TYPE;
@@ -49,7 +48,7 @@ parse_arr_type(
 
 	return type;
 err_unexpected_symbol:
-	printf_err("unexpected symbol '%s'",
+	printf_err("parse array type: unexpected symbol '%s'",
 			tok,
 			cstr_symbol(tok->data.symbol));
 	return NULL;
@@ -67,7 +66,7 @@ parse_type(struct parser *parser)
 	struct zako_type *type;
 	assert(parser);
 	tok = eat_tok(parser);
-	if (tok->kind == SCLEXER_SYMBOL)
+	if (tok->kind == SCLEXER_SYMBOL && tok->data.symbol == SYM_BRACKET_L)
 		return parse_arr_type(tok, parser);
 	if (tok->kind != SCLEXER_KEYWORD)
 		goto err_unexpected_token;
@@ -90,10 +89,10 @@ parse_type(struct parser *parser)
 	}
 	return type;
 err_unexpected_token:
-	print_err("unexpected token", tok);
+	print_err("parse type: unexpected token", tok);
 	return NULL;
 err_unexpected_keyword:
-	printf_err("unexpected keyword '%s'",
+	printf_err("parse type: unexpected keyword '%s'",
 			tok,
 			cstr_keyword(tok->data.keyword));
 err_free_type:
