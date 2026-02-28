@@ -99,7 +99,11 @@ err_unknown_token:
 err_compile_file:
 	printf_err_msg("compile file '%s'", path);
 err_free_all:
-	free(parser.cur_scope);
+	exit_scope(&parser);
+	for (size_t i = 0; i < stmts_count; i++)
+		free_toplevel_stmt(stmts[i]);
+	free(stmts);
+	free(parser.tokens);
 	free(src);
 	free(mod);
 	return NULL;

@@ -11,8 +11,8 @@ free_let_stmt(struct zako_let_stmt *self)
 {
 	if (!self)
 		return;
-	/* self->ident will be freed by exit_scope() */
 	free_expr(self->expr);
+	free_ident(self->ident);
 	free(self);
 }
 
