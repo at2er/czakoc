@@ -4,6 +4,7 @@
 #include <mcb/inst/add.h>
 #include <mcb/inst/div.h>
 #include <mcb/inst/mul.h>
+#include <mcb/inst/store.h>
 #include <mcb/inst/sub.h>
 #include "compiler.h"
 #include "expr.h"
@@ -12,15 +13,34 @@
 #define UTILSH_CONTAINER_OF_STRIP
 #include "../container_of.h"
 #include "../expr.h"
+#include "../ident.h"
 #include "../panic.h"
 #include "../type.h"
 
+static int compile_assign_expr(
+		struct zako_binary_expr *binary,
+		struct compiler_context *ctx);
 static struct mcb_value *compile_binary_expr(
 		struct zako_binary_expr *binary,
 		struct compiler_context *ctx);
 static struct mcb_value *compile_primary_expr(
 		struct zako_value *primary,
 		struct compiler_context *ctx);
+
+int
+compile_assign_expr(
+		struct zako_binary_expr *binary,
+		struct compiler_context *ctx)
+{
+	struct mcb_value *container, *val;
+	assert(binary && ctx);
+	container = binary->lhs->data.ident->value;
+	val = compile_value(binary->rhs, ctx);
+	assert(container && val);
+	if (mcb_inst_store_value(container, val, ctx->fn))
+		panic("mcb_inst_store_value()");
+	return 0;
+}
 
 struct mcb_value *
 compile_primary_expr(
@@ -84,4 +104,19 @@ compile_expr(struct zako_expr *expr, struct compiler_context *ctx)
 		return compile_primary_expr(expr->inner.primary, ctx);
 	}
 	return NULL;
+}
+
+int
+compile_expr_stmt(struct zako_expr *expr, struct compiler_context *ctx)
+{
+	assert(expr && ctx);
+	assert(expr->kind == BINARY_EXPR);
+	switch (expr->inner.binary.op) {
+	case SYM_ASSIGN:
+		return compile_assign_expr(&expr->inner.binary, ctx);
+	default:
+		break;
+	}
+	panic("expr->inner.binary.op");
+	return 0;
 }

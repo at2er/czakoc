@@ -9,5 +9,6 @@ enum ANALYSIS_RESULT analyse_cmp_expr(struct zako_expr *expr);
 enum ANALYSIS_RESULT analyse_expr(
 		struct zako_expr *expr,
 		struct zako_type *expect_type);
+enum ANALYSIS_RESULT analyse_expr_stmt(struct zako_expr *expr);
 
 #endif

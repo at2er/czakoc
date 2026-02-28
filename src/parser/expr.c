@@ -2,12 +2,16 @@
 #include "expr.h"
 #include "parser.h"
 #include "sclexer.h"
+#include "scope.h"
 #include "utils.h"
 #include "value.h"
 #include "../ealloc.h"
+#include "../err.h"
 #include "../expr.h"
 #include "../lexer.h"
 #include "../panic.h"
+#include "../semantics/expr.h"
+#include "../semantics/semantics.h"
 
 enum EXPR_PARSING_MODE {
 	CMP_EXPR_MODE,
@@ -15,6 +19,7 @@ enum EXPR_PARSING_MODE {
 };
 
 static int get_expr_op_binding_power(enum ZAKO_SYMBOL sym);
+static bool is_expr_stmt_op(struct sclexer_tok *tok);
 static struct zako_expr *merge_expr(
 		struct zako_expr *origin,
 		struct zako_expr *append);
@@ -43,6 +48,21 @@ get_expr_op_binding_power(enum ZAKO_SYMBOL sym)
 	}
 	panic("get_expr_op_binding_power()");
 	return -1;
+}
+
+bool
+is_expr_stmt_op(struct sclexer_tok *tok)
+{
+	assert(tok);
+	if (tok->kind != SCLEXER_SYMBOL)
+		return false;
+	switch (tok->data.symbol) {
+	case SYM_ASSIGN:
+		return true;
+	default:
+		break;
+	}
+	return false;
 }
 
 struct zako_expr *
@@ -160,4 +180,58 @@ struct zako_expr *
 parse_expr(struct parser *parser, bool in_paren)
 {
 	return parse_expr_with_mode(parser, in_paren, DEFAULT_EXPR_MODE);
+}
+
+struct zako_stmt *
+parse_expr_stmt(struct sclexer_tok *tok, struct parser *parser)
+{
+	struct sclexer_tok *begin;
+	struct zako_ident *ident;
+	char *ident_name;
+	int ret;
+	struct zako_expr *self;
+	struct zako_stmt *stmt;
+	assert(tok && parser);
+	if (tok->kind != SCLEXER_IDENT)
+		goto err_unexpected_token;
+	begin = tok;
+	ident_name = dup_slice_to_cstr(&tok->data.str);
+	ident = find_ident_in_scope(ident_name, parser->cur_scope);
+	if (!ident)
+		goto err_ident_not_found;
+	free(ident_name);
+	if (ident->type->builtin == FN_TYPE)
+		panic("unsupport syntax");
+	tok = eat_tok(parser);
+	if (!is_expr_stmt_op(tok))
+		goto err_not_expr_stmt;
+	stmt = ecalloc(1, sizeof(*stmt));
+	stmt->kind = EXPR_STMT;
+	stmt->inner.expr_stmt = self = ecalloc(1, sizeof(*self));
+	self->kind = BINARY_EXPR;
+	self->inner.binary.lhs = ecalloc(1, sizeof(*self->inner.binary.lhs));
+	self->inner.binary.lhs->kind = IDENT_VALUE;
+	self->inner.binary.lhs->data.ident = ident;
+	self->inner.binary.op = tok->data.symbol;
+	self->inner.binary.rhs = ecalloc(1, sizeof(*self->inner.binary.rhs));
+	self->inner.binary.rhs->kind = EXPR_VALUE;
+	self->inner.binary.rhs->data.expr = parse_expr(parser, false);
+	ret = analyse_expr_stmt(self);
+	if (ret)
+		goto err_analyse_expr_stmt;
+	return stmt;
+err_unexpected_token:
+	print_err("unexpected token", tok);
+	return NULL;
+err_ident_not_found:
+	printf_err("identifier '%s' not found", tok, ident_name);
+	free(ident_name);
+	return NULL;
+err_not_expr_stmt:
+	print_err("not expression statement", begin);
+	return NULL;
+err_analyse_expr_stmt:
+	printf_err("expr stmt: %s", begin, cstr_analysis_result(ret));
+	free_stmt(stmt);
+	return NULL;
 }

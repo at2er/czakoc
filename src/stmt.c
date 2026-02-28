@@ -13,6 +13,9 @@ free_stmt(struct zako_stmt *self)
 	if (!self)
 		return;
 	switch (self->kind) {
+	case EXPR_STMT:
+		free_expr(self->inner.expr_stmt);
+		break;
 	case IF_STMT:
 		free_if_stmt(self->inner.if_stmt);
 		break;
@@ -51,6 +54,14 @@ print_stmt(struct zako_stmt *self, Jim *jim)
 	if (!jim)
 		jim = &fallback;
 	switch (self->kind) {
+	case EXPR_STMT:
+		jim_object_begin(jim);
+		jim_member_key(jim, "kind");
+		jim_string(jim, "expr stmt");
+		jim_member_key(jim, "expr");
+		print_expr(self->inner.expr_stmt, jim);
+		jim_object_end(jim);
+		break;
 	case IF_STMT:
 		print_if_stmt(self->inner.if_stmt, jim);
 		break;

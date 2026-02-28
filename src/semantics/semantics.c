@@ -6,6 +6,7 @@
 static const char *analysis_result_str[] = {
 	[SUCCESS] = "analysis succeed",
 	[UNKOWN_ANALYSIS_ERR] = "unkown analysis error",
+	[IDENT_CANNOT_BE_ASSIGNED] = "identifier can't be assigned",
 	[TYPE_COMPARE_EXPECT_SIGNED] =
 		"type compare failed: expect signed integer",
 	[TYPE_COMPARE_EXPECT_UNSIGNED] =

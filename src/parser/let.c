@@ -19,17 +19,23 @@ struct zako_stmt *
 parse_let_stmt(struct parser *parser)
 {
 	struct sclexer_tok *begin, *tok;
+	bool mutable = false;
 	int ret;
 	struct zako_let_stmt *self;
 	struct zako_stmt *stmt;
 	assert(parser);
 	begin = eat_tok(parser);
+	if (begin->kind == SCLEXER_KEYWORD && begin->data.keyword == KEYWORD_MUT) {
+		mutable = true;
+		begin = eat_tok(parser);
+	}
 	stmt = ecalloc(1, sizeof(*stmt));
 	stmt->kind = LET_STMT;
 	stmt->inner.let_stmt = self = ecalloc(1, sizeof(*self));
 	self->ident = parse_ident_sign(begin, parser);
 	if (!self->ident)
 		goto err_free_stmt;
+	self->ident->mutable = mutable;
 	tok = eat_tok(parser);
 	if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_ASSIGN)
 		goto err_unexpected_token;

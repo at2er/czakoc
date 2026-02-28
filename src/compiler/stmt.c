@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <assert.h>
 #include "compiler.h"
+#include "expr.h"
 #include "fn.h"
 #include "if.h"
 #include "let.h"
@@ -14,6 +15,8 @@ compile_stmt(struct zako_stmt *stmt, struct compiler_context *ctx)
 {
 	assert(stmt && ctx);
 	switch (stmt->kind) {
+	case EXPR_STMT:
+		return compile_expr_stmt(stmt->inner.expr_stmt, ctx);
 	case IF_STMT:
 		return compile_if_stmt(stmt->inner.if_stmt, ctx);
 	case LET_STMT:

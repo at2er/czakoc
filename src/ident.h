@@ -2,6 +2,7 @@
 #ifndef CZAKOC_IDENT_H
 #define CZAKOC_IDENT_H
 #include <mcb/value.h>
+#include <stdbool.h>
 #include "type.h"
 
 enum ZAKO_IDENT_KIND {
@@ -13,6 +14,8 @@ struct zako_ident {
 	char *name;
 	enum ZAKO_IDENT_KIND kind;
 	struct zako_type *type;
+
+	bool mutable;
 
 	struct mcb_value *value;
 };

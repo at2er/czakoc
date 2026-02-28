@@ -100,3 +100,18 @@ analyse_expr(struct zako_expr *expr, struct zako_type *expect_type)
 	expr->type = expect_type;
 	return SUCCESS;
 }
+
+enum ANALYSIS_RESULT
+analyse_expr_stmt(struct zako_expr *expr)
+{
+	struct zako_ident *ident;
+	int ret;
+	assert(expr);
+	ident = expr->inner.binary.lhs->data.ident;
+	if (!ident->mutable)
+		return IDENT_CANNOT_BE_ASSIGNED;
+	ret = analyse_expr(expr, ident->type);
+	if (ret)
+		return ret;
+	return SUCCESS;
+}

@@ -9,4 +9,8 @@ struct mcb_value *compile_expr(
 		struct zako_expr *expr,
 		struct compiler_context *ctx);
 
+int compile_expr_stmt(
+		struct zako_expr *expr,
+		struct compiler_context *ctx);
+
 #endif

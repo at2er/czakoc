@@ -3,17 +3,20 @@
 #define CZAKOC_STMT_H
 #include "jim2.h"
 
+struct zako_expr;
 struct zako_if_stmt;
 struct zako_let_stmt;
 struct zako_return_stmt;
 
 struct zako_stmt {
 	enum STMT_KIND {
+		EXPR_STMT,
 		IF_STMT,
 		LET_STMT,
 		RETURN_STMT
 	} kind;
 	union {
+		struct zako_expr *expr_stmt;
 		struct zako_if_stmt *if_stmt;
 		struct zako_let_stmt *let_stmt;
 		struct zako_return_stmt *return_stmt;

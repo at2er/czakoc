@@ -23,6 +23,8 @@ print_ident(struct zako_ident *self, Jim *jim)
 	jim_string(jim, "identifier");
 	jim_member_key(jim, "name");
 	jim_string(jim, self->name);
+	jim_member_key(jim, "mutable");
+	jim_bool(jim, self->mutable);
 	jim_member_key(jim, "type");
 	print_type(self->type, jim);
 	jim_object_end(jim);

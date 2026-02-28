@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#include "expr.h"
 #include "fn.h"
 #include "if.h"
 #include "let.h"
@@ -15,7 +16,7 @@ parse_stmt(struct sclexer_tok *tok, struct parser *parser)
 {
 	assert(tok && parser);
 	if (tok->kind != SCLEXER_KEYWORD)
-		return NULL; /* expression statement */
+		return parse_expr_stmt(tok, parser);
 	switch (tok->data.keyword) {
 	case KEYWORD_IF:
 		return parse_if_stmt(parser);
