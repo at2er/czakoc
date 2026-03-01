@@ -31,6 +31,10 @@ struct zako_fn_type {
 	struct zako_ident **args;
 	struct zako_type *type;
 
+	/* when the value >= 0, the zako_fn_declaration
+	 * actually is a syscall declaration */
+	int syscall;
+
 	struct mcb_func *mcb_fn;
 };
 

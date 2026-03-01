@@ -35,8 +35,9 @@ compile_toplevel_stmt(
 	assert(stmt && ctx);
 	switch (stmt->kind) {
 	case FN_DECLARATION:
-		panic("toplevel declaration statement");
-		break;
+		if (!compile_fn_declaration(stmt->inner.fn_declaration, ctx))
+			return 1;
+		return 0;
 	case FN_DEFINITION:
 		return compile_fn_definition(
 				stmt->inner.fn_definition,

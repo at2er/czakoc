@@ -85,18 +85,24 @@ parse_fn_call(struct zako_ident *callee,
 		struct parser *parser)
 {
 	struct zako_fn_call *call;
+	int i = 0;
 	struct zako_value *value;
 	assert(callee && parser);
 	call = ecalloc(1, sizeof(*call));
 	call->fn = callee;
-	for (int i = 0; i < callee->type->inner.fn.argc; i++) {
+	for (; i < callee->type->inner.fn.argc; i++) {
 		value = parse_value(parser);
 		if (!value)
-			goto err_free_call;
+			goto err_parse_value;
 		darr_append(call->args, call->argc, value);
 	}
 	return call;
-err_free_call:
+err_parse_value:
+	if (i < callee->type->inner.fn.argc) {
+		printf_err_cont("call '%s': too few arguments", callee->name);
+	} else {
+		printf_err_cont("call '%s': too many arguments", callee->name);
+	}
 	free_fn_call(call);
 	return NULL;
 }
@@ -118,8 +124,9 @@ parse_fn_definition(struct sclexer_tok *tok, struct parser *parser, bool public)
 	stmt->inner.fn_declaration = declaration;
 	tok = peek_tok(parser);
 	if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_ASSIGN) {
-		if (tok->kind != SCLEXER_EOL || tok->kind != SCLEXER_EOF)
+		if (tok->kind != SCLEXER_EOL && tok->kind != SCLEXER_EOF)
 			goto err_unexpected_token;
+		exit_scope(parser);
 		return stmt; /* declaration */
 	}
 	eat_tok(parser);

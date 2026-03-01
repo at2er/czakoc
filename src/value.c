@@ -3,6 +3,7 @@
 #include "expr.h"
 #include "fn.h"
 #include "ident.h"
+#include "str.h"
 #include "value.h"
 
 void destroy_elem_init(struct zako_elem_init_value *self);
@@ -65,6 +66,9 @@ free_value(struct zako_value *self)
 	case IDENT_VALUE:
 	case INT_LITERAL:
 		break;
+	case STRING_LITERAL:
+		str_free(&self->data.str);
+		break;
 	}
 	free(self);
 }
@@ -104,6 +108,10 @@ print_value(struct zako_value *self, Jim *jim)
 	case INT_LITERAL:
 		jim_member_key(jim, "int");
 		jim_integer(jim, self->data.i);
+		break;
+	case STRING_LITERAL:
+		jim_member_key(jim, "string");
+		jim_string(jim, self->data.str.s);
 		break;
 	}
 	jim_member_key(jim, "type");

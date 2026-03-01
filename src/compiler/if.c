@@ -31,7 +31,10 @@ compile_if_cond(
 	rhs = compile_value(expr->inner.cmp.rhs, ctx);
 	if (!rhs)
 		panic("compile_value()");
-	result = mcb_define_value("cmp_result", MCB_CMP_RESULT, ctx->fn);
+	result = mcb_define_value(
+			"cmp_result",
+			mcb_get_type_from_builtin(MCB_CMP_RESULT),
+			ctx->fn);
 	if (!result)
 		panic("mcb_define_value()");
 	if (mcb_inst_cmp(result, lhs, op, rhs, ctx->fn))

@@ -11,25 +11,25 @@
 #include "../panic.h"
 #include "../value.h"
 
-static struct mcb_value *compile_arr_elem_value(
-		struct zako_arr_elem_value *value,
-		struct compiler_context *ctx);
+// static struct mcb_value *compile_arr_elem_value(
+// 		struct zako_arr_elem_value *value,
+// 		struct compiler_context *ctx);
 
-struct mcb_value *
-compile_arr_elem_value(
-		struct zako_arr_elem_value *value,
-		struct compiler_context *ctx)
-{
-	struct mcb_value *result;
-	assert(value && ctx);
-	result = mcb_get_value_from_array(
-			value->arr->value,
-			value->idx,
-			ctx->fn);
-	if (!result)
-		panic("mcb_get_value_from_array()");
-	return result;
-}
+// struct mcb_value *
+// compile_arr_elem_value(
+// 		struct zako_arr_elem_value *value,
+// 		struct compiler_context *ctx)
+// {
+// 	struct mcb_value *result;
+// 	assert(value && ctx);
+// 	result = mcb_get_value_from_array(
+// 			value->arr->value,
+// 			value->idx,
+// 			ctx->fn);
+// 	if (!result)
+// 		panic("mcb_get_value_from_array()");
+// 	return result;
+// }
 
 struct mcb_value *
 compile_value(struct zako_value *value, struct compiler_context *ctx)
@@ -38,7 +38,7 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 	assert(value && ctx);
 	switch (value->kind) {
 	case ARR_ELEM_VALUE:
-		return compile_arr_elem_value(&value->data.arr_elem, ctx);
+		// return compile_arr_elem_value(&value->data.arr_elem, ctx);
 	case ELEM_INIT_VALUE:
 		panic("value->kind == ELEM_INIT_VALUE");
 		break;
@@ -56,6 +56,20 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 		if (!mcb_val)
 			panic("mcb_define_value()");
 		if (mcb_inst_store_int(mcb_val, value->data.i, ctx->fn))
+			panic("mcb_inst_store_int()");
+		break;
+	case STRING_LITERAL:
+		mcb_val = mcb_define_value(
+				"_",
+				mcb_type_from_zako(value->type),
+				ctx->fn);
+		if (!mcb_val)
+			panic("mcb_define_value()");
+		if (mcb_inst_store_string(
+					mcb_val,
+					value->data.str.s,
+					value->data.str.len,
+					ctx->fn))
 			panic("mcb_inst_store_int()");
 		break;
 	}

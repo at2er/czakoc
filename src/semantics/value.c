@@ -17,6 +17,9 @@ static int analyse_arr_init_value(
 static int analyse_elem_init_value(
 		struct zako_elem_init_value *elem_init,
 		struct zako_type *expect_type);
+static int analyse_string_literal(
+		struct str *str,
+		struct zako_type *expect_type);
 
 int
 analyse_arr_elem_value(
@@ -66,6 +69,21 @@ analyse_elem_init_value(
 	return CANNOT_INIT_VALUE_BY_ELEM_INIT;
 }
 
+int
+analyse_string_literal(
+		struct str *str,
+		struct zako_type *expect_type)
+{
+	enum ZAKO_BUILTIN_TYPE arr_elem_builtin;
+	assert(str && expect_type);
+	if (expect_type->builtin != ARR_TYPE)
+		return TYPE_COMPARE_IMPLICIT_CAST;
+	arr_elem_builtin = expect_type->inner.arr.elem_type->builtin;
+	if (arr_elem_builtin != U8_TYPE && arr_elem_builtin != I8_TYPE)
+		return TYPE_COMPARE_IMPLICIT_CAST;
+	return 0;
+}
+
 enum ANALYSIS_RESULT
 analyse_value(struct zako_value *value, struct zako_type *expect_type)
 {
@@ -104,6 +122,11 @@ analyse_value(struct zako_value *value, struct zako_type *expect_type)
 	case INT_LITERAL:
 		if (!IS_NUMBER(expect_type->builtin))
 			return TYPE_COMPARE_IMPLICIT_CAST;
+		break;
+	case STRING_LITERAL:
+		ret = analyse_string_literal(&value->data.str, expect_type);
+		if (ret)
+			return ret;
 		break;
 	}
 	value->type = expect_type;

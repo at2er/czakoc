@@ -33,7 +33,8 @@ parse_arr_type(
 	tok = eat_tok(parser);
 	if (tok->kind != SCLEXER_SYMBOL)
 		goto err_unexpected_token;
-	/* dynamic array is unsupport now */
+	if (tok->data.symbol == SYM_BRACKET_R)
+		return type;
 	if (tok->data.symbol != SYM_SEMICOLON)
 		goto err_unexpected_symbol;
 
@@ -76,6 +77,16 @@ parse_type(struct parser *parser)
 		type->builtin = FN_TYPE;
 		if (parse_fn_sign(&type->inner.fn, parser))
 			goto err_free_type;
+		type->inner.fn.syscall = -1;
+		break;
+	case KEYWORD_SYSCALL:
+		tok = eat_tok(parser);
+		if (tok->kind != SCLEXER_INT)
+			goto err_unexpected_token;
+		type->builtin = FN_TYPE;
+		if (parse_fn_sign(&type->inner.fn, parser))
+			goto err_free_type;
+		type->inner.fn.syscall = tok->data.uint;
 		break;
 	case KEYWORD_I8:  type->builtin = I8_TYPE;  break;
 	case KEYWORD_I16: type->builtin = I16_TYPE; break;

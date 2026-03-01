@@ -4,6 +4,6 @@
 #include <mcb/type.h>
 #include "../type.h"
 
-enum MCB_TYPE mcb_type_from_zako(struct zako_type *type);
+const struct mcb_type *mcb_type_from_zako(struct zako_type *type);
 
 #endif

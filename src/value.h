@@ -3,6 +3,7 @@
 #define CZAKOC_VALUE_H
 #include <stddef.h>
 #include <stdint.h>
+#include "str.h"
 #include "type.h"
 
 struct zako_expr;
@@ -27,7 +28,8 @@ struct zako_value {
 		EXPR_VALUE,
 		FN_CALL_VALUE,
 		IDENT_VALUE,
-		INT_LITERAL
+		INT_LITERAL,
+		STRING_LITERAL
 	} kind;
 	union {
 		struct zako_arr_elem_value arr_elem;
@@ -37,6 +39,7 @@ struct zako_value {
 		struct zako_ident *ident;
 		int64_t  i;
 		uint64_t u;
+		struct str str;
 	} data;
 
 	struct zako_type *type;

@@ -5,13 +5,14 @@
 static const char *comments[1] = {"--"};
 
 static const char *keywords[] = {
-	[KEYWORD_FN]     = "fn",
-	[KEYWORD_IF]     = "if",
-	[KEYWORD_LET]    = "let",
-	[KEYWORD_MUT]    = "mut",
-	[KEYWORD_PUB]    = "pub",
-	[KEYWORD_RETURN] = "return",
-	[KEYWORD_THEN]   = "then",
+	[KEYWORD_FN]      = "fn",
+	[KEYWORD_IF]      = "if",
+	[KEYWORD_LET]     = "let",
+	[KEYWORD_MUT]     = "mut",
+	[KEYWORD_PUB]     = "pub",
+	[KEYWORD_RETURN]  = "return",
+	[KEYWORD_SYSCALL] = "syscall",
+	[KEYWORD_THEN]    = "then",
 
 	[KEYWORD_I8]  = "i8",
 	[KEYWORD_I16] = "i16",

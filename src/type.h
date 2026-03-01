@@ -45,6 +45,8 @@ struct zako_type {
 		struct zako_arr_type arr;
 		struct zako_fn_type fn;
 	} inner;
+
+	struct mcb_type *mcb_type;
 };
 
 void free_type(struct zako_type *self);

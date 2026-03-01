@@ -1,3 +1,9 @@
+-- fib fn(n i32) i32 =
+-- 	if n <= 1 then
+-- 		return n
+-- 	return (fib (n - 1)) + (fib (n - 2))
+
+write syscall 1(fd u32, buf [u8], len u64) i32
+
 pub main fn(argc i32) i32 =
-	let a [i32; 2] = {0, 1}
-	return a[0]
+	return write 1 "hello\n" 6

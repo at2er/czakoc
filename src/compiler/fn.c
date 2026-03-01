@@ -2,6 +2,7 @@
 #include <mcb/value.h>
 #include <mcb/func.h>
 #include <mcb/inst/call.h>
+#include <mcb/syscall.h>
 #include "compiler.h"
 #include "stmt.h"
 #include "utils.h"
@@ -38,18 +39,15 @@ compile_fn_call(struct zako_fn_call *call, struct compiler_context *ctx)
 	return value;
 }
 
-int
-compile_fn_definition(
-		struct zako_fn_definition *definition,
+struct mcb_func *
+compile_fn_declaration(
+		struct zako_fn_declaration *declaration,
 		struct compiler_context *ctx)
 {
-	struct zako_fn_declaration *declaration;
 	struct zako_fn_type *fn_type;
 	struct mcb_func *mcb_fn;
-	struct mcb_func_arg *mcb_fn_arg;
-	assert(definition && ctx);
+	assert(declaration && ctx);
 
-	declaration = definition->declaration;
 	fn_type = &declaration->ident->type->inner.fn;
 
 	mcb_fn = mcb_define_func(
@@ -58,30 +56,41 @@ compile_fn_definition(
 			declaration->public ? MCB_EXPORT_FUNC : MCB_LOCAL_FUNC,
 			&ctx->mcb);
 	if (!mcb_fn)
-		goto err_define_func;
+		panic("mcb_define_func()");
+	if (fn_type->syscall >= 0)
+		if (mcb_func_to_syscall(fn_type->syscall, mcb_fn))
+			panic("mcb_func_to_syscall()");
+
 	fn_type->mcb_fn = mcb_fn;
+
 	for (int i = 0; i < fn_type->argc; i++) {
-		mcb_fn_arg = mcb_define_func_arg(
+		fn_type->args[i]->value = mcb_define_value(
 				fn_type->args[i]->name,
 				mcb_type_from_zako(fn_type->args[i]->type),
 				mcb_fn);
-		if (!mcb_fn_arg)
-			goto err_define_arg;
-		fn_type->args[i]->value = mcb_define_value_from_func_arg(
-				fn_type->args[i]->name,
-				mcb_fn_arg,
-				mcb_fn);
+		if (!fn_type->args[i]->value)
+			panic("mcb_define_func_arg()");
+		if (mcb_append_func_arg(fn_type->args[i]->value, mcb_fn))
+			panic("mcb_append_func_arg()");
 	}
-	ctx->fn = mcb_fn;
+
+	return mcb_fn;
+}
+
+int
+compile_fn_definition(
+		struct zako_fn_definition *definition,
+		struct compiler_context *ctx)
+{
+	assert(definition && ctx);
+
+	ctx->fn = compile_fn_declaration(definition->declaration, ctx);
+	if (!ctx->fn)
+		return 1;
+
 	for (size_t i = 0; i < definition->stmts_count; i++) {
 		if (compile_stmt(definition->stmts[i], ctx))
 			return 1;
 	}
 	return 0;
-err_define_func:
-	panic("mcb_define_func()");
-	return 1;
-err_define_arg:
-	panic("mcb_define_func_arg()");
-	return 1;
 }

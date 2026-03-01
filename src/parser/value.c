@@ -17,6 +17,10 @@ static int parse_arr_elem_value(
 		struct parser *parser);
 static int parse_elem_init_value(struct zako_value *value, struct parser *parser);
 static int parse_expr_value(struct zako_value *value, struct parser *parser);
+static int parse_value_by_sclexer_string(
+		struct sclexer_tok *tok,
+		struct zako_value *value,
+		struct parser *parser);
 static int parse_value_by_sclexer_symbol(
 		struct sclexer_tok *tok,
 		struct zako_value *value,
@@ -105,6 +109,21 @@ err_expr_not_end:
 }
 
 int
+parse_value_by_sclexer_string(
+		struct sclexer_tok *tok,
+		struct zako_value *value,
+		struct parser *parser)
+{
+	assert(tok && value && parser);
+	assert(tok->kind == SCLEXER_STRING);
+	value->kind = STRING_LITERAL;
+	value->data.str.s = dup_slice_to_cstr(&tok->data.str);
+	value->data.str.len = strlen(value->data.str.s);
+	value->data.str.siz = value->data.str.len + 1;
+	return 0;
+}
+
+int
 parse_value_by_sclexer_symbol(
 		struct sclexer_tok *tok,
 		struct zako_value *value,
@@ -175,15 +194,20 @@ parse_value(struct parser *parser)
 	tok = eat_tok(parser);
 	value = ecalloc(1, sizeof(*value));
 
-	if (tok->kind == SCLEXER_SYMBOL) {
-		if (parse_value_by_sclexer_symbol(tok, value, parser))
-			goto err_free_value;
-		return value;
-	} else if (tok->kind == SCLEXER_IDENT) {
+	if (tok->kind == SCLEXER_IDENT) {
 		if (parse_value_by_sclexer_ident(tok, value, parser))
 			goto err_free_value;
 		return value;
+	} else if (tok->kind == SCLEXER_STRING) {
+		if (parse_value_by_sclexer_string(tok, value, parser))
+			goto err_free_value;
+		return value;
+	} else if (tok->kind == SCLEXER_SYMBOL) {
+		if (parse_value_by_sclexer_symbol(tok, value, parser))
+			goto err_free_value;
+		return value;
 	} else if (tok->kind != SCLEXER_INT && tok->kind != SCLEXER_INT_NEG) {
+		print_err("parse value: unexpected token", tok);
 		goto err_free_value;
 	}
 
