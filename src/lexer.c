@@ -13,6 +13,7 @@ static const char *keywords[] = {
 	[KEYWORD_RETURN]  = "return",
 	[KEYWORD_SYSCALL] = "syscall",
 	[KEYWORD_THEN]    = "then",
+	[KEYWORD_WHILE]   = "while",
 
 	[KEYWORD_I8]  = "i8",
 	[KEYWORD_I16] = "i16",

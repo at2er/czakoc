@@ -1,30 +1,33 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <mcb/inst/branch.h>
-#include <mcb/inst/cmp.h>
+#include <mcb/inst/jmp.h>
 #include <mcb/label.h>
 #include <mcb/value.h>
 #include "compiler.h"
 #include "expr.h"
-#include "if.h"
+#include "while.h"
 #include "stmt.h"
-#include "../if.h"
 #include "../panic.h"
+#include "../while.h"
 
 int
-compile_if_stmt(
-		struct zako_if_stmt *stmt,
+compile_while_stmt(
+		struct zako_while_stmt *stmt,
 		struct compiler_context *ctx)
 {
 	struct mcb_value *cmp_result;
-	struct mcb_label *on_false, *on_true;
+	struct mcb_label *begin, *cont, *end;
 
 	cmp_result = compile_cmp_expr(stmt->cond, ctx);
-	on_false = mcb_define_label("on_false");
-	on_true = mcb_define_label("on_true");
+	begin = mcb_define_label("begin");
+	cont = mcb_define_label("cont");
+	end = mcb_define_label("end");
 
-	if (mcb_inst_branch(cmp_result, on_true, on_false, ctx->fn))
+	if (mcb_append_label(begin, ctx->fn))
+		panic("mcb_append_label()");
+	if (mcb_inst_branch(cmp_result, cont, end, ctx->fn))
 		panic("mcb_inst_branch()");
-	if (mcb_append_label(on_true, ctx->fn))
+	if (mcb_append_label(cont, ctx->fn))
 		panic("mcb_append_label()");
 
 	for (size_t i = 0; i < stmt->stmts_count; i++) {
@@ -32,7 +35,10 @@ compile_if_stmt(
 			return 1;
 	}
 
-	if (mcb_append_label(on_false, ctx->fn))
+	if (mcb_inst_jmp(cont, ctx->fn))
+		panic("mcb_inst_jmp()");
+
+	if (mcb_append_label(end, ctx->fn))
 		panic("mcb_append_label()");
 	return 0;
 }

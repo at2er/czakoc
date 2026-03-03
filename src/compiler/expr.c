@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <assert.h>
-#include <mcb/value.h>
+#include <mcb/inst.h>
 #include <mcb/inst/add.h>
+#include <mcb/inst/cmp.h>
 #include <mcb/inst/div.h>
 #include <mcb/inst/mul.h>
 #include <mcb/inst/store.h>
 #include <mcb/inst/sub.h>
+#include <mcb/type.h>
+#include <mcb/value.h>
 #include "compiler.h"
 #include "expr.h"
+#include "fn.h"
 #include "utils.h"
 #include "value.h"
 #define UTILSH_CONTAINER_OF_STRIP
@@ -26,6 +30,7 @@ static struct mcb_value *compile_binary_expr(
 static struct mcb_value *compile_primary_expr(
 		struct zako_value *primary,
 		struct compiler_context *ctx);
+static enum MCB_CMP_OPERATOR mcb_cmp_op_from_zako(enum ZAKO_SYMBOL sym);
 
 int
 compile_assign_expr(
@@ -91,6 +96,45 @@ compile_binary_expr(
 	return result;
 }
 
+enum MCB_CMP_OPERATOR
+mcb_cmp_op_from_zako(enum ZAKO_SYMBOL sym)
+{
+	switch (sym) {
+	case SYM_INFIX_LESS_EQUAL:
+		return MCB_LE;
+	default:
+		break;
+	}
+	panic("mcb_cmp_op_from_zako()");
+	return -1;
+}
+
+struct mcb_value *
+compile_cmp_expr(
+		struct zako_expr *expr,
+		struct compiler_context *ctx)
+{
+	enum MCB_CMP_OPERATOR op;
+	struct mcb_value *result, *lhs, *rhs;
+	assert(expr && ctx);
+	op = mcb_cmp_op_from_zako(expr->inner.cmp.op);
+	lhs = compile_value(expr->inner.cmp.lhs, ctx);
+	if (!lhs)
+		panic("compile_value()");
+	rhs = compile_value(expr->inner.cmp.rhs, ctx);
+	if (!rhs)
+		panic("compile_value()");
+	result = mcb_define_value(
+			"cmp_result",
+			mcb_get_type_from_builtin(MCB_CMP_RESULT),
+			ctx->fn);
+	if (!result)
+		panic("mcb_define_value()");
+	if (mcb_inst_cmp(result, lhs, op, rhs, ctx->fn))
+		panic("mcb_inst_cmp()");
+	return result;
+}
+
 struct mcb_value *
 compile_expr(struct zako_expr *expr, struct compiler_context *ctx)
 {
@@ -111,6 +155,12 @@ int
 compile_expr_stmt(struct zako_expr *expr, struct compiler_context *ctx)
 {
 	assert(expr && ctx);
+	if (expr->kind == PRIMARY_EXPR) {
+		compile_fn_call(expr->inner.primary->data.fn_call, ctx);
+		mcb_force_gen_inst(ctx->fn);
+		return 0;
+	}
+
 	assert(expr->kind == BINARY_EXPR);
 	switch (expr->inner.binary.op) {
 	case SYM_ASSIGN:

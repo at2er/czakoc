@@ -6,6 +6,7 @@
 #include "let.h"
 #include "return.h"
 #include "stmt.h"
+#include "while.h"
 
 void
 free_stmt(struct zako_stmt *self)
@@ -24,6 +25,9 @@ free_stmt(struct zako_stmt *self)
 		break;
 	case RETURN_STMT:
 		free_return_stmt(self->inner.return_stmt);
+		break;
+	case WHILE_STMT:
+		free_while_stmt(self->inner.while_stmt);
 		break;
 	}
 	free(self);
@@ -75,6 +79,9 @@ print_stmt(struct zako_stmt *self, Jim *jim)
 		jim_member_key(jim, "expr");
 		print_expr(self->inner.return_stmt->expr, jim);
 		jim_object_end(jim);
+		break;
+	case WHILE_STMT:
+		print_while_stmt(self->inner.while_stmt, jim);
 		break;
 	}
 }

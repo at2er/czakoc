@@ -6,4 +6,8 @@
 write syscall 1(fd u32, buf [u8], len u64) i32
 
 pub main fn(argc i32) i32 =
-	return write 1 "hello\n" 6
+	let mut x i32 = 0
+	while x <= 2 then
+		write 1 "hello\n" 6
+	return 0
+	-- return write 1 "hello\n" 6

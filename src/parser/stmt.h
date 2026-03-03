@@ -7,6 +7,11 @@ struct zako_stmt *parse_stmt(
 		struct sclexer_tok *tok,
 		struct parser *parser);
 
+int parse_stmt_block(
+		struct zako_stmt ***_stmts,
+		size_t *_stmts_count,
+		struct parser *parser);
+
 struct zako_toplevel_stmt *parse_toplevel_stmt(
 		struct sclexer_tok *tok,
 		struct parser *parser);

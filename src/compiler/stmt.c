@@ -7,6 +7,7 @@
 #include "let.h"
 #include "return.h"
 #include "stmt.h"
+#include "while.h"
 #include "../panic.h"
 #include "../stmt.h"
 
@@ -23,6 +24,8 @@ compile_stmt(struct zako_stmt *stmt, struct compiler_context *ctx)
 		return compile_let_stmt(stmt->inner.let_stmt, ctx);
 	case RETURN_STMT:
 		return compile_return_stmt(stmt->inner.return_stmt, ctx);
+	case WHILE_STMT:
+		return compile_while_stmt(stmt->inner.while_stmt, ctx);
 	}
 	return 0;
 }

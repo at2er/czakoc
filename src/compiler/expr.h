@@ -5,6 +5,10 @@
 #include "compiler.h"
 #include "../expr.h"
 
+struct mcb_value *compile_cmp_expr(
+		struct zako_expr *expr,
+		struct compiler_context *ctx);
+
 struct mcb_value *compile_expr(
 		struct zako_expr *expr,
 		struct compiler_context *ctx);

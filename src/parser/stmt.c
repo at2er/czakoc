@@ -8,6 +8,8 @@
 #include "sclexer.h"
 #include "stmt.h"
 #include "utils.h"
+#include "while.h"
+#include "../darr.h"
 #include "../err.h"
 #include "../lexer.h"
 
@@ -24,6 +26,8 @@ parse_stmt(struct sclexer_tok *tok, struct parser *parser)
 		return parse_let_stmt(parser);
 	case KEYWORD_RETURN:
 		return parse_return_stmt(parser);
+	case KEYWORD_WHILE:
+		return parse_while_stmt(parser);
 	default:
 		break;
 	}
@@ -31,6 +35,47 @@ parse_stmt(struct sclexer_tok *tok, struct parser *parser)
 			tok,
 			cstr_keyword(tok->data.keyword));
 	return NULL;
+}
+
+int
+parse_stmt_block(
+		struct zako_stmt ***_stmts,
+		size_t *_stmts_count,
+		struct parser *parser)
+{
+	struct zako_stmt *stmt;
+	struct zako_stmt **stmts = NULL;
+	size_t stmts_count = 0;
+	struct sclexer_tok *tok;
+	assert(_stmts && _stmts_count && parser);
+	tok = eat_tok(parser);
+	if (tok->kind != SCLEXER_KEYWORD || tok->data.keyword != KEYWORD_THEN)
+		goto err_unexpected_token;
+	tok = eat_tok_skip_white(parser);
+	if (tok->kind != SCLEXER_INDENT_BLOCK_BEGIN)
+		goto err_block_begin_not_found;
+	tok = peek_tok(parser);
+	while (tok->kind != SCLEXER_INDENT_BLOCK_END) {
+		eat_tok_skip_white(parser);
+		stmt = parse_stmt(tok, parser);
+		if (!stmt)
+			goto err_block_end_not_found;
+		darr_append(stmts, stmts_count, stmt);
+		tok = peek_tok_skip_white(parser);
+	}
+	eat_tok_skip_white(parser);
+	*_stmts = stmts;
+	*_stmts_count = stmts_count;
+	return 0;
+err_unexpected_token:
+	print_err("unexpected token", tok);
+	return 1;
+err_block_begin_not_found:
+	print_err("block not begin", tok);
+	return 1;
+err_block_end_not_found:
+	print_err("block not end", tok);
+	return 1;
 }
 
 struct zako_toplevel_stmt *

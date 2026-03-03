@@ -7,19 +7,22 @@ struct zako_expr;
 struct zako_if_stmt;
 struct zako_let_stmt;
 struct zako_return_stmt;
+struct zako_while_stmt;
 
 struct zako_stmt {
 	enum STMT_KIND {
 		EXPR_STMT,
 		IF_STMT,
 		LET_STMT,
-		RETURN_STMT
+		RETURN_STMT,
+		WHILE_STMT
 	} kind;
 	union {
 		struct zako_expr *expr_stmt;
 		struct zako_if_stmt *if_stmt;
 		struct zako_let_stmt *let_stmt;
 		struct zako_return_stmt *return_stmt;
+		struct zako_while_stmt *while_stmt;
 	} inner;
 };
 
