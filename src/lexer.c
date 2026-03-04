@@ -32,15 +32,22 @@ static const char *symbols[] = {
 	[SYM_BRACKET_R]           = "]",
 	[SYM_PAREN_L]             = "(",
 	[SYM_PAREN_R]             = ")",
-	[SYM_ASSIGN]              = "=",
 	[SYM_COMMA]               = ",",
 	[SYM_SEMICOLON]           = ";",
+
+	[SYM_ASSIGN]              = "=",
+	[SYM_ADD_ASSIGN]          = "+=",
+	[SYM_DIV_ASSIGN]          = "/=",
+	[SYM_MUL_ASSIGN]          = "*=",
+	[SYM_SUB_ASSIGN]          = "-=",
+
 	[SYM_INFIX_EQUAL]         = "==",
 	[SYM_INFIX_LESS]          = "<",
 	[SYM_INFIX_LESS_EQUAL]    = "<=",
 	[SYM_INFIX_GREATER]       = ">",
 	[SYM_INFIX_GREATER_EQUAL] = ">=",
 	[SYM_INFIX_NOT_EQUAL]     = "!=",
+
 	[SYM_INFIX_ADD]           = "+",
 	[SYM_INFIX_DIV]           = "/",
 	[SYM_INFIX_MUL]           = "*",

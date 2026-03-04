@@ -68,6 +68,10 @@ is_expr_stmt_op(struct sclexer_tok *tok)
 		return false;
 	switch (tok->data.symbol) {
 	case SYM_ASSIGN:
+	case SYM_ADD_ASSIGN:
+	case SYM_DIV_ASSIGN:
+	case SYM_MUL_ASSIGN:
+	case SYM_SUB_ASSIGN:
 		return true;
 	default:
 		break;

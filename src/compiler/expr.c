@@ -27,6 +27,9 @@ static int compile_assign_expr(
 static struct mcb_value *compile_binary_expr(
 		struct zako_binary_expr *binary,
 		struct compiler_context *ctx);
+static int compile_assign_expr(
+		struct zako_binary_expr *binary,
+		struct compiler_context *ctx);
 static struct mcb_value *compile_primary_expr(
 		struct zako_value *primary,
 		struct compiler_context *ctx);
@@ -37,13 +40,56 @@ compile_assign_expr(
 		struct zako_binary_expr *binary,
 		struct compiler_context *ctx)
 {
-	struct mcb_value *container, *val;
+	struct mcb_value *container, *rem, *tmp_result = NULL, *val;
+	struct zako_expr *expr;
 	assert(binary && ctx);
+
 	container = binary->lhs->data.ident->value;
+	expr = container_of(binary, struct zako_expr, inner.binary);
 	val = compile_value(binary->rhs, ctx);
-	assert(container && val);
+	assert(container && expr && val);
+
+	if (binary->op != SYM_ASSIGN) {
+		tmp_result = mcb_define_value(
+				"assign_expr_tmp_result",
+				container->type,
+				ctx->fn);
+		if (!tmp_result)
+			panic("mcb_define_value()");
+	}
+
+	switch (binary->op) {
+	case SYM_ADD_ASSIGN:
+		if (mcb_inst_add(tmp_result, container, val, ctx->fn))
+			panic("mcb_inst_add()");
+		val = tmp_result;
+		break;
+	case SYM_DIV_ASSIGN:
+		rem = mcb_define_value("_rem_", container->type, ctx->fn);
+		if (mcb_inst_div(tmp_result, rem, container, val, ctx->fn))
+			panic("mcb_inst_div()");
+		val = tmp_result;
+		break;
+	case SYM_MUL_ASSIGN:
+		if (mcb_inst_mul(tmp_result, container, val, ctx->fn))
+			panic("mcb_inst_mul()");
+		val = tmp_result;
+		break;
+	case SYM_SUB_ASSIGN:
+		if (mcb_inst_sub(tmp_result, container, val, ctx->fn))
+			panic("mcb_inst_sub()");
+		val = tmp_result;
+		break;
+	default:
+		break;
+	}
+
+	if (tmp_result)
+		val = tmp_result;
+
 	if (mcb_inst_store_value(container, val, ctx->fn))
 		panic("mcb_inst_store_value()");
+
 	return 0;
 }
 
@@ -167,13 +213,16 @@ compile_expr_stmt(struct zako_expr *expr, struct compiler_context *ctx)
 	assert(expr && ctx);
 	if (expr->kind == PRIMARY_EXPR) {
 		compile_fn_call(expr->inner.primary->data.fn_call, ctx);
-		mcb_force_gen_inst(ctx->fn);
 		return 0;
 	}
 
 	assert(expr->kind == BINARY_EXPR);
 	switch (expr->inner.binary.op) {
 	case SYM_ASSIGN:
+	case SYM_ADD_ASSIGN:
+	case SYM_DIV_ASSIGN:
+	case SYM_MUL_ASSIGN:
+	case SYM_SUB_ASSIGN:
 		return compile_assign_expr(&expr->inner.binary, ctx);
 	default:
 		break;
