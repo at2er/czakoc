@@ -18,13 +18,13 @@ compile_while_stmt(
 	struct mcb_value *cmp_result;
 	struct mcb_label *begin, *cont, *end;
 
-	cmp_result = compile_cmp_expr(stmt->cond, ctx);
 	begin = mcb_define_label("begin");
 	cont = mcb_define_label("cont");
 	end = mcb_define_label("end");
 
 	if (mcb_append_label(begin, ctx->fn))
 		panic("mcb_append_label()");
+	cmp_result = compile_cmp_expr(stmt->cond, ctx);
 	if (mcb_inst_branch(cmp_result, cont, end, ctx->fn))
 		panic("mcb_inst_branch()");
 	if (mcb_append_label(cont, ctx->fn))
@@ -35,7 +35,7 @@ compile_while_stmt(
 			return 1;
 	}
 
-	if (mcb_inst_jmp(cont, ctx->fn))
+	if (mcb_inst_jmp(begin, ctx->fn))
 		panic("mcb_inst_jmp()");
 
 	if (mcb_append_label(end, ctx->fn))

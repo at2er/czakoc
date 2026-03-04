@@ -100,8 +100,18 @@ enum MCB_CMP_OPERATOR
 mcb_cmp_op_from_zako(enum ZAKO_SYMBOL sym)
 {
 	switch (sym) {
+	case SYM_INFIX_EQUAL:
+		return MCB_EQ;
+	case SYM_INFIX_GREATER:
+		return MCB_GT;
+	case SYM_INFIX_GREATER_EQUAL:
+		return MCB_GE;
+	case SYM_INFIX_LESS:
+		return MCB_LT;
 	case SYM_INFIX_LESS_EQUAL:
 		return MCB_LE;
+	case SYM_INFIX_NOT_EQUAL:
+		return MCB_NE;
 	default:
 		break;
 	}

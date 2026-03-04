@@ -226,9 +226,9 @@ peek_expr_op(
 	if (tok->kind != SCLEXER_SYMBOL)
 		return 0;
 	if (mode == CMP_EXPR_MODE) {
-		if (tok->data.symbol < SYM_INFIX_LESS_EQUAL)
+		if (tok->data.symbol < SYM_INFIX_EQUAL)
 			return 0;
-		if (tok->data.symbol > SYM_INFIX_LESS_EQUAL)
+		if (tok->data.symbol > SYM_INFIX_NOT_EQUAL)
 			return 0;
 		return tok->data.symbol;
 	}

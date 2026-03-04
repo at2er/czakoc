@@ -26,20 +26,25 @@ static const char *keywords[] = {
 };
 
 static const char *symbols[] = {
-	[SYM_BRACE_L]          = "{",
-	[SYM_BRACE_R]          = "}",
-	[SYM_BRACKET_L]        = "[",
-	[SYM_BRACKET_R]        = "]",
-	[SYM_PAREN_L]          = "(",
-	[SYM_PAREN_R]          = ")",
-	[SYM_ASSIGN]           = "=",
-	[SYM_COMMA]            = ",",
-	[SYM_SEMICOLON]        = ";",
-	[SYM_INFIX_LESS_EQUAL] = "<=",
-	[SYM_INFIX_ADD]        = "+",
-	[SYM_INFIX_DIV]        = "/",
-	[SYM_INFIX_MUL]        = "*",
-	[SYM_INFIX_SUB]        = "-"
+	[SYM_BRACE_L]             = "{",
+	[SYM_BRACE_R]             = "}",
+	[SYM_BRACKET_L]           = "[",
+	[SYM_BRACKET_R]           = "]",
+	[SYM_PAREN_L]             = "(",
+	[SYM_PAREN_R]             = ")",
+	[SYM_ASSIGN]              = "=",
+	[SYM_COMMA]               = ",",
+	[SYM_SEMICOLON]           = ";",
+	[SYM_INFIX_EQUAL]         = "==",
+	[SYM_INFIX_LESS]          = "<",
+	[SYM_INFIX_LESS_EQUAL]    = "<=",
+	[SYM_INFIX_GREATER]       = ">",
+	[SYM_INFIX_GREATER_EQUAL] = ">=",
+	[SYM_INFIX_NOT_EQUAL]     = "!=",
+	[SYM_INFIX_ADD]           = "+",
+	[SYM_INFIX_DIV]           = "/",
+	[SYM_INFIX_MUL]           = "*",
+	[SYM_INFIX_SUB]           = "-"
 };
 
 const char *
