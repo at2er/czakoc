@@ -30,7 +30,7 @@ print_arr_elem_value(struct zako_arr_elem_value *self, Jim *jim)
 	jim_member_key(jim, "arr");
 	print_ident(self->arr, jim);
 	jim_member_key(jim, "index");
-	jim_integer(jim, self->idx);
+	print_value(self->idx, jim);
 	jim_object_end(jim);
 }
 
@@ -53,6 +53,8 @@ free_value(struct zako_value *self)
 		return;
 	switch (self->kind) {
 	case ARR_ELEM_VALUE:
+		free_type(self->data.arr_elem.idx->type);
+		free_value(self->data.arr_elem.idx);
 		break;
 	case ELEM_INIT_VALUE:
 		destroy_elem_init(&self->data.elem_init);
@@ -68,6 +70,9 @@ free_value(struct zako_value *self)
 		break;
 	case STRING_LITERAL:
 		str_free(&self->data.str);
+		break;
+	case TYPE_LITERAL:
+		free_type(self->data.type);
 		break;
 	}
 	free(self);
@@ -112,6 +117,10 @@ print_value(struct zako_value *self, Jim *jim)
 	case STRING_LITERAL:
 		jim_member_key(jim, "string");
 		jim_string(jim, self->data.str.s);
+		break;
+	case TYPE_LITERAL:
+		jim_member_key(jim, "type");
+		print_type(self->data.type, jim);
 		break;
 	}
 	jim_member_key(jim, "type");

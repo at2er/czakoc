@@ -1,14 +1,24 @@
--- fib fn(n i32) i32 =
--- 	if n <= 1 then
--- 		return n
--- 	return (fib (n - 1)) + (fib (n - 2))
+fib fn(n i32) i32 =
+	if n <= 1 then
+		return n
+	return (fib (n - 1)) + (fib (n - 2))
 
 write syscall 1(fd u32, buf [u8], len u64) i32
 
-pub main fn(argc i32) i32 =
-	let mut x i32 = 0
-	while x < 2 then
-		write 1 "hello\n" 6
-		x += 1
+print_int fn(i i32) i32 =
+	let mut x i32 = i
+	let mut idx u32 = 0
+	let mut arr [i32; 8] = { 0, 0, 0, 0, 0, 0, 0, 0 }
+	write 1 arr 8
+	--while x > 0 then
+	--	let q i32 = x / 10
+	--	let r i32 = x - (10 * q)
+	--	arr[idx] = r + 48
+	--	idx = idx + 1
+	--	x = q
 	return 0
-	-- return write 1 "hello\n" 6
+
+pub main fn(argc i32) i32 =
+	let mut x i32 = fib 35
+	print_int x
+	return 0

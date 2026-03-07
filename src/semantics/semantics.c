@@ -7,6 +7,8 @@ static const char *analysis_result_str[] = {
 	[SUCCESS] = "analysis succeed",
 	[UNKOWN_ANALYSIS_ERR] = "unkown analysis error",
 	[ACCESS_OUT_OF_ARR] = "access out of array",
+	[ACCESS_ARR_ELEM_BY_INVAILED_IDX] =
+		"access array element by invailed index",
 	[IDENT_CANNOT_BE_ASSIGNED] = "identifier can't be assigned",
 	[TYPE_COMPARE_EXPECT_SIGNED] =
 		"type compare failed: expect signed integer",

@@ -79,3 +79,14 @@ peek_tok_skip_white(struct parser *parser)
 	}
 	return tok;
 }
+
+void
+skip_white_tok(struct parser *parser)
+{
+	struct sclexer_tok *tok;
+	tok = peek_tok(parser);
+	while (tok->kind == SCLEXER_EOL) {
+		eat_tok(parser);
+		tok = peek_tok(parser);
+	}
+}

@@ -3,6 +3,7 @@
 #include "expr.h"
 #include "parser.h"
 #include "scope.h"
+#include "type.h"
 #include "utils.h"
 #include "value.h"
 #include "../darr.h"
@@ -17,15 +18,18 @@ static int parse_arr_elem_value(
 		struct parser *parser);
 static int parse_elem_init_value(struct zako_value *value, struct parser *parser);
 static int parse_expr_value(struct zako_value *value, struct parser *parser);
-static int parse_value_by_sclexer_string(
+static int parse_type_literal_value(
+		struct zako_value *value,
+		struct parser *parser);
+static int parse_value_by_sclexer_ident(
+		struct sclexer_tok *tok,
+		struct zako_value *value,
+		struct parser *parser);
+static void parse_value_by_sclexer_string(
 		struct sclexer_tok *tok,
 		struct zako_value *value,
 		struct parser *parser);
 static int parse_value_by_sclexer_symbol(
-		struct sclexer_tok *tok,
-		struct zako_value *value,
-		struct parser *parser);
-static int parse_value_by_sclexer_ident(
 		struct sclexer_tok *tok,
 		struct zako_value *value,
 		struct parser *parser);
@@ -40,15 +44,13 @@ parse_arr_elem_value(
 	assert(value && arr && parser);
 
 	tok = eat_tok(parser);
-	if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_BRACKET_L)
-		goto err_unexpected_token;
+	assert(tok->kind == SCLEXER_SYMBOL && tok->data.symbol == SYM_BRACKET_L);
 
-	tok = eat_tok(parser);
-	if (tok->kind != SCLEXER_INT)
-		goto err_unexpected_token;
 	value->kind = ARR_ELEM_VALUE;
 	value->data.arr_elem.arr = arr;
-	value->data.arr_elem.idx = tok->data.uint;
+	value->data.arr_elem.idx = parse_value(parser);
+	if (!value->data.arr_elem.idx)
+		return 1;
 
 	tok = eat_tok(parser);
 	if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_BRACKET_R)
@@ -56,7 +58,7 @@ parse_arr_elem_value(
 
 	return 0;
 err_unexpected_token:
-	print_err("unexpected token", tok);
+	print_err("token in array index isn't integer", tok);
 	return 1;
 }
 
@@ -109,39 +111,18 @@ err_expr_not_end:
 }
 
 int
-parse_value_by_sclexer_string(
-		struct sclexer_tok *tok,
+parse_type_literal_value(
 		struct zako_value *value,
 		struct parser *parser)
 {
-	assert(tok && value && parser);
-	assert(tok->kind == SCLEXER_STRING);
-	value->kind = STRING_LITERAL;
-	value->data.str.s = dup_slice_to_cstr(&tok->data.str);
-	value->data.str.len = strlen(value->data.str.s);
-	value->data.str.siz = value->data.str.len + 1;
+	assert(value && parser);
+	value->kind = TYPE_LITERAL;
+	value->data.type = parse_type(parser);
+	if (!value->data.type)
+		goto err_parse_type;
 	return 0;
-}
-
-int
-parse_value_by_sclexer_symbol(
-		struct sclexer_tok *tok,
-		struct zako_value *value,
-		struct parser *parser)
-{
-	assert(tok && value && parser);
-	assert(tok->kind == SCLEXER_SYMBOL);
-	switch (tok->data.symbol) {
-	case SYM_BRACE_L:
-		return parse_elem_init_value(value, parser);
-	case SYM_PAREN_L:
-		return parse_expr_value(value, parser);
-	default:
-		break;
-	}
-	printf_err("unexpected symbol '%s'",
-			tok,
-			cstr_symbol(tok->data.symbol));
+err_parse_type:
+	print_err_cont("not a type literal");
 	return 1;
 }
 
@@ -155,6 +136,9 @@ parse_value_by_sclexer_ident(
 	char *ident_name;
 	assert(tok && value && parser);
 	assert(tok->kind == SCLEXER_IDENT);
+
+	eat_tok(parser);
+
 	ident_name = dup_slice_to_cstr(&tok->data.str);
 	value->kind = IDENT_VALUE;
 	value->data.ident = ident = find_ident_in_scope(
@@ -167,7 +151,10 @@ parse_value_by_sclexer_ident(
 
 	switch (ident->type->builtin) {
 	case ARR_TYPE:
-		return parse_arr_elem_value(value, ident, parser);
+		tok = peek_tok(parser);
+		if (tok->kind == SCLEXER_SYMBOL && tok->data.symbol == SYM_BRACKET_L)
+			return parse_arr_elem_value(value, ident, parser);
+		break;
 	case FN_TYPE:
 		value->kind = FN_CALL_VALUE;
 		value->data.fn_call = parse_fn_call(ident, parser);
@@ -185,34 +172,78 @@ err_ident_not_found:
 	return 1;
 }
 
+void
+parse_value_by_sclexer_string(
+		struct sclexer_tok *tok,
+		struct zako_value *value,
+		struct parser *parser)
+{
+	assert(tok && value && parser);
+	assert(tok->kind == SCLEXER_STRING);
+	eat_tok(parser);
+	value->kind = STRING_LITERAL;
+	value->data.str.s = dup_slice_to_cstr(&tok->data.str);
+	value->data.str.len = strlen(value->data.str.s);
+	value->data.str.siz = value->data.str.len + 1;
+}
+
+int
+parse_value_by_sclexer_symbol(
+		struct sclexer_tok *tok,
+		struct zako_value *value,
+		struct parser *parser)
+{
+	assert(tok && value && parser);
+	assert(tok->kind == SCLEXER_SYMBOL);
+	eat_tok(parser);
+	switch (tok->data.symbol) {
+	case SYM_BRACE_L:
+		return parse_elem_init_value(value, parser);
+	case SYM_PAREN_L:
+		return parse_expr_value(value, parser);
+	default:
+		break;
+	}
+	printf_err("unexpected symbol '%s'",
+			tok,
+			cstr_symbol(tok->data.symbol));
+	return 1;
+}
+
 struct zako_value *
 parse_value(struct parser *parser)
 {
 	struct zako_value *value;
 	struct sclexer_tok *tok;
 	assert(parser);
-	tok = eat_tok(parser);
+	tok = peek_tok(parser);
 	value = ecalloc(1, sizeof(*value));
 
-	if (tok->kind == SCLEXER_IDENT) {
+	switch (tok->kind) {
+	case SCLEXER_IDENT:
 		if (parse_value_by_sclexer_ident(tok, value, parser))
 			goto err_free_value;
 		return value;
-	} else if (tok->kind == SCLEXER_STRING) {
-		if (parse_value_by_sclexer_string(tok, value, parser))
-			goto err_free_value;
+	case SCLEXER_STRING:
+		parse_value_by_sclexer_string(tok, value, parser);
 		return value;
-	} else if (tok->kind == SCLEXER_SYMBOL) {
+	case SCLEXER_SYMBOL:
 		if (parse_value_by_sclexer_symbol(tok, value, parser))
 			goto err_free_value;
 		return value;
-	} else if (tok->kind != SCLEXER_INT && tok->kind != SCLEXER_INT_NEG) {
-		print_err("parse value: unexpected token", tok);
-		goto err_free_value;
+	case SCLEXER_INT:
+	case SCLEXER_INT_NEG:
+		eat_tok(parser);
+		value->kind = INT_LITERAL;
+		value->data.i = tok->data.sint;
+		return value;
+	default:
+		break;
 	}
 
-	value->kind = INT_LITERAL;
-	value->data.i = tok->data.sint;
+	if (parse_type_literal_value(value, parser))
+		goto err_free_value;
+
 	return value;
 err_free_value:
 	free(value);

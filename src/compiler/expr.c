@@ -12,7 +12,7 @@
 #include "compiler.h"
 #include "expr.h"
 #include "fn.h"
-#include "utils.h"
+#include "type.h"
 #include "value.h"
 #define UTILSH_CONTAINER_OF_STRIP
 #include "../container_of.h"
@@ -110,6 +110,10 @@ compile_binary_expr(
 	struct zako_expr *expr;
 	struct mcb_value *result, *rem, *lhs, *rhs;
 	assert(binary && ctx);
+
+	if (binary->op == SYM_INFIX_AS)
+		return compile_value(binary->lhs, ctx);
+
 	expr = container_of(binary, struct zako_expr, inner.binary);
 	result = mcb_define_value(
 			"binary_expr_result",
@@ -195,6 +199,7 @@ struct mcb_value *
 compile_expr(struct zako_expr *expr, struct compiler_context *ctx)
 {
 	assert(expr && ctx);
+
 	switch (expr->kind) {
 	case BINARY_EXPR:
 		return compile_binary_expr(&expr->inner.binary, ctx);

@@ -17,8 +17,13 @@ struct zako_stmt *
 parse_stmt(struct sclexer_tok *tok, struct parser *parser)
 {
 	assert(tok && parser);
-	if (tok->kind != SCLEXER_KEYWORD)
+
+	if (tok->kind != SCLEXER_KEYWORD) {
+		skip_white_tok(parser);
 		return parse_expr_stmt(tok, parser);
+	}
+
+	eat_tok_skip_white(parser);
 	switch (tok->data.keyword) {
 	case KEYWORD_IF:
 		return parse_if_stmt(parser);
@@ -48,15 +53,11 @@ parse_stmt_block(
 	size_t stmts_count = 0;
 	struct sclexer_tok *tok;
 	assert(_stmts && _stmts_count && parser);
-	tok = eat_tok(parser);
-	if (tok->kind != SCLEXER_KEYWORD || tok->data.keyword != KEYWORD_THEN)
-		goto err_unexpected_token;
 	tok = eat_tok_skip_white(parser);
 	if (tok->kind != SCLEXER_INDENT_BLOCK_BEGIN)
 		goto err_block_begin_not_found;
-	tok = peek_tok(parser);
+	tok = peek_tok_skip_white(parser);
 	while (tok->kind != SCLEXER_INDENT_BLOCK_END) {
-		eat_tok_skip_white(parser);
 		stmt = parse_stmt(tok, parser);
 		if (!stmt)
 			goto err_block_end_not_found;
@@ -67,9 +68,6 @@ parse_stmt_block(
 	*_stmts = stmts;
 	*_stmts_count = stmts_count;
 	return 0;
-err_unexpected_token:
-	print_err("unexpected token", tok);
-	return 1;
 err_block_begin_not_found:
 	print_err("block not begin", tok);
 	return 1;

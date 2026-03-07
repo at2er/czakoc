@@ -41,6 +41,8 @@ static const char *symbols[] = {
 	[SYM_MUL_ASSIGN]          = "*=",
 	[SYM_SUB_ASSIGN]          = "-=",
 
+	[SYM_INFIX_AS]            = "as",
+
 	[SYM_INFIX_EQUAL]         = "==",
 	[SYM_INFIX_LESS]          = "<",
 	[SYM_INFIX_LESS_EQUAL]    = "<=",

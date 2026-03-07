@@ -1,35 +1,54 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-#include <mcb/array.h>
+#include <mcb/inst/address_of.h>
+#include <mcb/inst/element_of.h>
 #include <mcb/inst/store.h>
 #include <mcb/value.h>
 #include "compiler.h"
 #include "expr.h"
 #include "fn.h"
-#include "utils.h"
+#include "type.h"
 #include "value.h"
 #include "../ident.h"
 #include "../panic.h"
 #include "../value.h"
 
-// static struct mcb_value *compile_arr_elem_value(
-// 		struct zako_arr_elem_value *value,
-// 		struct compiler_context *ctx);
+static struct mcb_value *compile_arr_value(
+		struct zako_ident *ident,
+		struct compiler_context *ctx);
+static struct mcb_value *compile_arr_elem_value(
+		struct zako_arr_elem_value *value,
+		struct compiler_context *ctx);
 
-// struct mcb_value *
-// compile_arr_elem_value(
-// 		struct zako_arr_elem_value *value,
-// 		struct compiler_context *ctx)
-// {
-// 	struct mcb_value *result;
-// 	assert(value && ctx);
-// 	result = mcb_get_value_from_array(
-// 			value->arr->value,
-// 			value->idx,
-// 			ctx->fn);
-// 	if (!result)
-// 		panic("mcb_get_value_from_array()");
-// 	return result;
-// }
+struct mcb_value *
+compile_arr_value(
+		struct zako_ident *ident,
+		struct compiler_context *ctx)
+{
+	struct mcb_value *result;
+	const struct mcb_type *type;
+	assert(ident && ctx);
+	type = mcb_type_from_zako(ident->type);
+	result = mcb_define_value("_ARR_", type, ctx->fn);
+	if (mcb_inst_address_of(result, ident->value, ctx->fn))
+		panic("mcb_inst_address_of");
+	return result;
+}
+
+struct mcb_value *
+compile_arr_elem_value(
+		struct zako_arr_elem_value *value,
+		struct compiler_context *ctx)
+{
+	struct mcb_value *result, *idx;
+	assert(value && ctx);
+	result = mcb_define_value("_ARR_ELEM_",
+			value->arr->value->type->inner,
+			ctx->fn);
+	idx = compile_value(value->idx, ctx);
+	if (mcb_inst_element_of(result, value->arr->value, idx, ctx->fn))
+		panic("mcb_inst_element_of()");
+	return result;
+}
 
 struct mcb_value *
 compile_value(struct zako_value *value, struct compiler_context *ctx)
@@ -38,7 +57,7 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 	assert(value && ctx);
 	switch (value->kind) {
 	case ARR_ELEM_VALUE:
-		// return compile_arr_elem_value(&value->data.arr_elem, ctx);
+		return compile_arr_elem_value(&value->data.arr_elem, ctx);
 	case ELEM_INIT_VALUE:
 		panic("value->kind == ELEM_INIT_VALUE");
 		break;
@@ -47,10 +66,13 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 	case FN_CALL_VALUE:
 		return compile_fn_call(value->data.fn_call, ctx);
 	case IDENT_VALUE:
-		return value->data.ident->value;
+		if (value->data.ident->type->builtin != ARR_TYPE)
+			return value->data.ident->value;
+		mcb_val = compile_arr_value(value->data.ident, ctx);
+		break;
 	case INT_LITERAL:
 		mcb_val = mcb_define_value(
-				"_",
+				"_INT_LITERAL_",
 				mcb_type_from_zako(value->type),
 				ctx->fn);
 		if (!mcb_val)
@@ -60,7 +82,7 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 		break;
 	case STRING_LITERAL:
 		mcb_val = mcb_define_value(
-				"_",
+				"_STRING_LITERAL_",
 				mcb_type_from_zako(value->type),
 				ctx->fn);
 		if (!mcb_val)
@@ -71,6 +93,9 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 					value->data.str.len,
 					ctx->fn))
 			panic("mcb_inst_store_int()");
+		break;
+	case TYPE_LITERAL:
+		panic("TYPE_LITERAL");
 		break;
 	}
 	return mcb_val;

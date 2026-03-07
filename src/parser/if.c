@@ -19,6 +19,7 @@ parse_if_stmt(struct parser *parser)
 	int ret;
 	struct zako_if_stmt *self;
 	struct zako_stmt *stmt;
+	struct sclexer_tok *tok;
 	assert(parser);
 	begin = peek_tok(parser);
 	stmt = ecalloc(1, sizeof(*stmt));
@@ -30,14 +31,22 @@ parse_if_stmt(struct parser *parser)
 	ret = analyse_cmp_expr(self->cond);
 	if (ret)
 		goto err_analyse_cmp_expr;
+
+	tok = eat_tok(parser);
+	if (tok->kind != SCLEXER_KEYWORD || tok->data.keyword != KEYWORD_THEN)
+		goto err_unexpected_token;
 	if (parse_stmt_block(&self->stmts, &self->stmts_count, parser))
 		goto err_free_stmt;
+
 	return stmt;
 err_not_cmp:
 	print_err("not comparison expression", begin);
 	goto err_free_stmt;
 err_analyse_cmp_expr:
 	printf_err("if stmt: %s", begin, cstr_analysis_result(ret));
+	goto err_free_stmt;
+err_unexpected_token:
+	print_err("unexpected token", tok);
 err_free_stmt:
 	free_stmt(stmt);
 	return NULL;

@@ -48,6 +48,21 @@ get_builtin_type_from_int_literal(int64_t i)
 	return -1;
 }
 
+enum ZAKO_BUILTIN_TYPE
+get_builtin_type_from_uint_literal(uint64_t i)
+{
+	if (i <= UINT8_MAX)
+		return U8_TYPE;
+	if (i <= UINT16_MAX)
+		return U16_TYPE;
+	if (i <= UINT32_MAX)
+		return U32_TYPE;
+	if (i <= UINT64_MAX)
+		return U64_TYPE;
+	panic("get_builtin_type_from_uint_literal()");
+	return -1;
+}
+
 void
 print_type(struct zako_type *self, Jim *jim)
 {

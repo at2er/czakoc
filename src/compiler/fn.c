@@ -5,7 +5,7 @@
 #include <mcb/syscall.h>
 #include "compiler.h"
 #include "stmt.h"
-#include "utils.h"
+#include "type.h"
 #include "value.h"
 #include "../ealloc.h"
 #include "../fn.h"

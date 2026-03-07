@@ -6,8 +6,12 @@
 #include "../ealloc.h"
 #include "../ident.h"
 #include "../panic.h"
+#include "../value.h"
 
 static int analyse_binary_expr(
+		struct zako_expr *expr,
+		struct zako_type *expect_type);
+static int analyse_binary_expr_with_cast(
 		struct zako_expr *expr,
 		struct zako_type *expect_type);
 static int analyse_cmp_expr_value(
@@ -23,16 +27,45 @@ analyse_binary_expr(
 		struct zako_type *expect_type)
 {
 	struct zako_binary_expr *binary;
+	int ret_lhs, ret_rhs;
+	assert(expr && expect_type);
+	binary = &expr->inner.binary;
+
+	expr->type = expect_type;
+	if (binary->op == SYM_INFIX_AS)
+		return analyse_binary_expr_with_cast(expr, expect_type);
+
+	ret_lhs = analyse_value(binary->lhs, expect_type);
+	ret_rhs = analyse_value(binary->rhs, expect_type);
+
+	if (ret_lhs)
+		return ret_lhs;
+	if (ret_rhs)
+		return ret_rhs;
+	return 0;
+}
+
+int
+analyse_binary_expr_with_cast(
+		struct zako_expr *expr,
+		struct zako_type *expect_type)
+{
+	struct zako_binary_expr *binary;
 	int ret;
 	assert(expr && expect_type);
 	binary = &expr->inner.binary;
-	ret = analyse_value(binary->lhs, expect_type);
+	assert(binary->op == SYM_INFIX_AS);
+
+	assert(binary->rhs->kind == TYPE_LITERAL);
+	ret = compare_builtin_type(
+			binary->rhs->data.type->builtin,
+			expect_type->builtin);
 	if (ret)
 		return ret;
-	ret = analyse_value(binary->rhs, expect_type);
-	if (ret)
-		return ret;
-	return 0;
+	binary->rhs->type = expect_type;
+
+	analyse_value(binary->lhs, expect_type);
+	return analyse_value(binary->rhs, expect_type);
 }
 
 int
@@ -104,13 +137,28 @@ analyse_expr(struct zako_expr *expr, struct zako_type *expect_type)
 enum ANALYSIS_RESULT
 analyse_expr_stmt(struct zako_expr *expr)
 {
-	struct zako_ident *ident;
+	struct zako_ident *ident = NULL;
 	int ret;
+	struct zako_type *type = NULL;
 	assert(expr);
-	ident = expr->inner.binary.lhs->data.ident;
+
+	switch (expr->inner.binary.lhs->kind) {
+	case ARR_ELEM_VALUE:
+		ident = expr->inner.binary.lhs->data.arr_elem.arr;
+		type = ident->type->inner.arr.elem_type;
+		break;
+	case IDENT_VALUE:
+		ident = expr->inner.binary.lhs->data.ident;
+		type = ident->type;
+		break;
+	default:
+		break;
+	}
+
 	if (!ident->mutable)
 		return IDENT_CANNOT_BE_ASSIGNED;
-	ret = analyse_expr(expr, ident->type);
+
+	ret = analyse_expr(expr, type);
 	if (ret)
 		return ret;
 	return SUCCESS;

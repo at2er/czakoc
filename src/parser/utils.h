@@ -10,5 +10,6 @@ struct sclexer_tok *eat_tok_skip_white(struct parser *parser);
 struct sclexer_tok *peek_tok(struct parser *parser);
 struct sclexer_tok *peek_tok_to(struct parser *parser, int count);
 struct sclexer_tok *peek_tok_skip_white(struct parser *parser);
+void skip_white_tok(struct parser *parser);
 
 #endif

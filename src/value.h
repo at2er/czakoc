@@ -13,7 +13,7 @@ struct zako_value;
 
 struct zako_arr_elem_value {
 	struct zako_ident *arr;
-	size_t idx;
+	struct zako_value *idx;
 };
 
 struct zako_elem_init_value {
@@ -29,7 +29,8 @@ struct zako_value {
 		FN_CALL_VALUE,
 		IDENT_VALUE,
 		INT_LITERAL,
-		STRING_LITERAL
+		STRING_LITERAL,
+		TYPE_LITERAL
 	} kind;
 	union {
 		struct zako_arr_elem_value arr_elem;
@@ -40,6 +41,7 @@ struct zako_value {
 		int64_t  i;
 		uint64_t u;
 		struct str str;
+		struct zako_type *type;
 	} data;
 
 	struct zako_type *type;

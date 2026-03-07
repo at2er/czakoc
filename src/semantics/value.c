@@ -5,11 +5,13 @@
 #include "ident.h"
 #include "semantics.h"
 #include "value.h"
+#include "../ealloc.h"
+#include "../panic.h"
 #include "../type.h"
 #include "../value.h"
 
 static int analyse_arr_elem_value(
-		struct zako_arr_elem_value *elem,
+		struct zako_value *value,
 		struct zako_type *expect_type);
 static int analyse_arr_init_value(
 		struct zako_elem_init_value *elem_init,
@@ -23,16 +25,39 @@ static int analyse_string_literal(
 
 int
 analyse_arr_elem_value(
-		struct zako_arr_elem_value *elem,
+		struct zako_value *value,
 		struct zako_type *expect_type)
 {
 	struct zako_arr_type *arr_type;
-	struct zako_type *elem_type;
-	assert(elem && expect_type);
+	struct zako_arr_elem_value *elem;
+	struct zako_type *elem_type, *fake_idx_expect_type;
+
+	assert(value && expect_type);
+
+	elem = &value->data.arr_elem;
+
 	arr_type = &elem->arr->type->inner.arr;
 	elem_type = arr_type->elem_type;
-	if (arr_type->size != 0 && elem->idx >= arr_type->size)
-		return ACCESS_OUT_OF_ARR;
+
+	if (elem->idx->kind == STRING_LITERAL)
+		return TYPE_COMPARE_IMPLICIT_CAST;
+	if (arr_type->size != 0 && elem->idx->kind == INT_LITERAL) {
+		if (elem->idx->data.u >= arr_type->size)
+			return ACCESS_OUT_OF_ARR;
+	}
+
+	/* [fake_idx_expect_type] must be freed */
+	fake_idx_expect_type = ecalloc(1, sizeof(*fake_idx_expect_type));
+	fake_idx_expect_type->builtin = U64_TYPE;
+	if (analyse_value(elem->idx, fake_idx_expect_type))
+		return ACCESS_ARR_ELEM_BY_INVAILED_IDX;
+	if (elem->idx->kind == INT_LITERAL) {
+		fake_idx_expect_type->builtin =
+			get_builtin_type_from_uint_literal(elem->idx->data.u);
+	}
+
+	value->type = elem_type;
+
 	return compare_builtin_type(elem_type->builtin, expect_type->builtin);
 }
 
@@ -87,48 +112,47 @@ analyse_string_literal(
 enum ANALYSIS_RESULT
 analyse_value(struct zako_value *value, struct zako_type *expect_type)
 {
-	int ret;
+	int ret = 0;
 	assert(value && expect_type);
 	switch (value->kind) {
 	case ARR_ELEM_VALUE:
-		ret = analyse_arr_elem_value(
-				&value->data.arr_elem,
-				expect_type);
-		if (ret)
-			return ret;
+		ret = analyse_arr_elem_value(value, expect_type);
 		break;
 	case ELEM_INIT_VALUE:
+		/* type analysis not handled */
 		ret = analyse_elem_init_value(
 				&value->data.elem_init,
 				expect_type);
-		if (ret)
-			return ret;
 		break;
 	case EXPR_VALUE:
 		ret = analyse_expr(value->data.expr, expect_type);
-		if (ret)
-			return ret;
+		value->type = value->data.expr->type;
 		break;
 	case FN_CALL_VALUE:
 		ret = analyse_fn_call(value->data.fn_call, expect_type);
-		if (ret)
-			return ret;
+		value->type = value->data.fn_call->fn->type->inner.fn.type;
 		break;
 	case IDENT_VALUE:
 		ret = analyse_ident(value->data.ident, expect_type);
-		if (ret)
-			return ret;
+		value->type = value->data.ident->type;
 		break;
 	case INT_LITERAL:
+		/* type analysis not handled */
 		if (!IS_NUMBER(expect_type->builtin))
 			return TYPE_COMPARE_IMPLICIT_CAST;
 		break;
 	case STRING_LITERAL:
+		/* type analysis not handled */
 		ret = analyse_string_literal(&value->data.str, expect_type);
-		if (ret)
-			return ret;
+		break;
+	case TYPE_LITERAL:
+		ret = compare_builtin_type(
+				value->data.type->builtin,
+				expect_type->builtin);
 		break;
 	}
+	if (ret)
+		return ret;
 	value->type = expect_type;
 	return 0;
 }
