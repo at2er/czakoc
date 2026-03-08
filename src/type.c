@@ -13,6 +13,7 @@ destroy_arr_type(struct zako_arr_type *self)
 {
 	if (!self)
 		return;
+	free_type(self->elem_type);
 }
 
 void

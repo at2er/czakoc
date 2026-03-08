@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#include <stdbool.h>
 #include "fn.h"
 #include "parser.h"
 #include "sclexer.h"
@@ -22,6 +23,7 @@ static struct zako_fn_declaration *parse_fn_declaration(
 		struct sclexer_tok *tok,
 		struct parser *parser,
 		bool public);
+static bool peek_fn_call_end(int idx, struct parser *parser);
 
 struct zako_fn_definition *
 parse_fn_body(struct zako_fn_declaration *declaration, struct parser *parser)
@@ -79,20 +81,37 @@ parse_fn_call(struct zako_ident *callee,
 	call = ecalloc(1, sizeof(*call));
 	call->fn = callee;
 	for (; i < callee->type->inner.fn.argc; i++) {
+		if (peek_fn_call_end(i, parser))
+			break;
 		value = parse_value(parser);
 		if (!value)
 			goto err_parse_value;
 		darr_append(call->args, call->argc, value);
 	}
-	return call;
-err_parse_value:
 	if (i < callee->type->inner.fn.argc) {
 		printf_err_cont("call '%s': too few arguments", callee->name);
-	} else {
+	} else if (i > callee->type->inner.fn.argc) {
 		printf_err_cont("call '%s': too many arguments", callee->name);
 	}
+	return call;
+err_parse_value:
 	free_fn_call(call);
 	return NULL;
+}
+
+bool
+peek_fn_call_end(int idx, struct parser *parser)
+{
+	struct sclexer_tok *tok;
+	if (idx <= 0)
+		return false;
+	tok = peek_tok_skip_white(parser);
+	if (tok->kind != SCLEXER_SYMBOL)
+		return true;
+	if (tok->data.symbol != SYM_COMMA)
+		return true;
+	eat_tok_skip_white(parser);
+	return false;
 }
 
 struct zako_toplevel_stmt *

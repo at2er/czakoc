@@ -53,7 +53,7 @@ compile_fn_declaration(
 			declaration->ident->name,
 			mcb_type_from_zako(fn_type->type),
 			declaration->public ? MCB_EXPORT_FUNC : MCB_LOCAL_FUNC,
-			&ctx->mcb);
+			ctx->mcb);
 	if (!mcb_fn)
 		panic("mcb_define_func()");
 	if (fn_type->syscall >= 0)

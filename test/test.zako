@@ -15,7 +15,7 @@ print_int fn(i i32) i32 =
 		arr[idx] = r + 48 as u8
 		idx -= 1
 		x = q
-	write 1 arr 8
+	write 1, arr, 8
 	return 0
 
 pub main fn(argc i32) i32 =

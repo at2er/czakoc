@@ -38,7 +38,7 @@ compile_arr_let_stmt(
 	arr_type = &stmt->ident->type->inner.arr;
 	elem_init = &stmt->expr->inner.primary->data.elem_init;
 
-	mcb_arr_type = ecalloc(1, sizeof(*mcb_arr_type));
+	mcb_arr_type = mcb_define_type(ctx->mcb);
 	mcb_arr_type->builtin = MCB_ARRAY;
 	mcb_arr_type->inner = (struct mcb_type*)
 		mcb_type_from_zako(arr_type->elem_type);

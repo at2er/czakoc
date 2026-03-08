@@ -18,9 +18,9 @@ compile_while_stmt(
 	struct mcb_value *cmp_result;
 	struct mcb_label *begin, *cont, *end;
 
-	begin = mcb_define_label("begin");
-	cont = mcb_define_label("cont");
-	end = mcb_define_label("end");
+	begin = mcb_define_label(NULL, ctx->fn);
+	cont = mcb_define_label(NULL, ctx->fn);
+	end = mcb_define_label(NULL, ctx->fn);
 
 	if (mcb_append_label(begin, ctx->fn))
 		panic("mcb_append_label()");

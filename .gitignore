@@ -2,5 +2,10 @@ build
 compile_commands.json
 czakoc
 log*
+path.vim
 Session.vim
+test/test
 .cache
+*.o
+*.s
+!test/_start.s

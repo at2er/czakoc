@@ -18,7 +18,7 @@ compile_file(
 	struct compiler_context ctx = {0};
 	assert(stmts && mod);
 
-	mcb_define_context(&ctx.mcb);
+	ctx.mcb = mcb_define_context();
 	ctx.mod = mod;
 
 	for (size_t i = 0; i < stmts_count; i++) {
@@ -27,15 +27,15 @@ compile_file(
 	}
 
 	if (czakoc_flags & CZAKOC_OUTPUT_IR)
-		mcb_output_context(&ctx.mcb, stdout);
+		mcb_output_context(ctx.mcb, stdout);
 
-	if (mcb_target_gnu_asm(stdout, &ctx.mcb))
+	if (mcb_target_gnu_asm(stdout, ctx.mcb))
 		goto err_destroy_ctx;
 
-	mcb_destroy_context(&ctx.mcb);
+	mcb_free_context(ctx.mcb);
 
 	return 0;
 err_destroy_ctx:
-	mcb_destroy_context(&ctx.mcb);
+	mcb_free_context(ctx.mcb);
 	return 1;
 }

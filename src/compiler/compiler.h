@@ -9,7 +9,7 @@
 
 struct compiler_context {
 	struct mcb_func *fn;
-	struct mcb_context mcb;
+	struct mcb_context *mcb;
 	struct zako_module *mod;
 };
 
