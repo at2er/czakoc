@@ -5,7 +5,8 @@
 
 enum CZAKOC_FLAG {
 	CZAKOC_OUTPUT_AST = 1,
-	CZAKOC_OUTPUT_LEXER_TOKENS = 1 << 1
+	CZAKOC_OUTPUT_IR = 1 << 1,
+	CZAKOC_OUTPUT_LEXER_TOKENS = 1 << 2
 };
 
 /* defined in main.c and don't change from other place */

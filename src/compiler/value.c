@@ -28,7 +28,7 @@ compile_arr_value(
 	const struct mcb_type *type;
 	assert(ident && ctx);
 	type = mcb_type_from_zako(ident->type);
-	result = mcb_define_value("_ARR_", type, ctx->fn);
+	result = mcb_define_value(NULL, type, ctx->fn);
 	if (mcb_inst_address_of(result, ident->value, ctx->fn))
 		panic("mcb_inst_address_of");
 	return result;
@@ -41,7 +41,7 @@ compile_arr_elem_value(
 {
 	struct mcb_value *result, *idx;
 	assert(value && ctx);
-	result = mcb_define_value("_ARR_ELEM_",
+	result = mcb_define_value(NULL,
 			value->arr->value->type->inner,
 			ctx->fn);
 	idx = compile_value(value->idx, ctx);
@@ -71,8 +71,7 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 		mcb_val = compile_arr_value(value->data.ident, ctx);
 		break;
 	case INT_LITERAL:
-		mcb_val = mcb_define_value(
-				"_INT_LITERAL_",
+		mcb_val = mcb_define_value(NULL,
 				mcb_type_from_zako(value->type),
 				ctx->fn);
 		if (!mcb_val)
@@ -81,8 +80,7 @@ compile_value(struct zako_value *value, struct compiler_context *ctx)
 			panic("mcb_inst_store_int()");
 		break;
 	case STRING_LITERAL:
-		mcb_val = mcb_define_value(
-				"_STRING_LITERAL_",
+		mcb_val = mcb_define_value(NULL,
 				mcb_type_from_zako(value->type),
 				ctx->fn);
 		if (!mcb_val)

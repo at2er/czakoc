@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include "compiler.h"
 #include "stmt.h"
+#include "../czakoc.h"
 
 int
 compile_file(
@@ -24,6 +25,9 @@ compile_file(
 		if (compile_toplevel_stmt(stmts[i], &ctx))
 			goto err_destroy_ctx;
 	}
+
+	if (czakoc_flags & CZAKOC_OUTPUT_IR)
+		mcb_output_context(&ctx.mcb, stdout);
 
 	if (mcb_target_gnu_asm(stdout, &ctx.mcb))
 		goto err_destroy_ctx;

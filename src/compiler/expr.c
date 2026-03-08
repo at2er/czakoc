@@ -44,14 +44,13 @@ compile_assign_expr(
 	struct zako_expr *expr;
 	assert(binary && ctx);
 
-	container = binary->lhs->data.ident->value;
+	container = compile_value(binary->lhs, ctx);
 	expr = container_of(binary, struct zako_expr, inner.binary);
 	val = compile_value(binary->rhs, ctx);
 	assert(container && expr && val);
 
 	if (binary->op != SYM_ASSIGN) {
-		tmp_result = mcb_define_value(
-				"assign_expr_tmp_result",
+		tmp_result = mcb_define_value(NULL,
 				container->type,
 				ctx->fn);
 		if (!tmp_result)
@@ -65,7 +64,7 @@ compile_assign_expr(
 		val = tmp_result;
 		break;
 	case SYM_DIV_ASSIGN:
-		rem = mcb_define_value("_rem_", container->type, ctx->fn);
+		rem = mcb_define_value(NULL, container->type, ctx->fn);
 		if (mcb_inst_div(tmp_result, rem, container, val, ctx->fn))
 			panic("mcb_inst_div()");
 		val = tmp_result;
@@ -115,8 +114,7 @@ compile_binary_expr(
 		return compile_value(binary->lhs, ctx);
 
 	expr = container_of(binary, struct zako_expr, inner.binary);
-	result = mcb_define_value(
-			"binary_expr_result",
+	result = mcb_define_value(NULL,
 			mcb_type_from_zako(expr->type),
 			ctx->fn);
 	lhs = compile_value(binary->lhs, ctx);
@@ -127,7 +125,7 @@ compile_binary_expr(
 			panic("mcb_inst_add()");
 		break;
 	case SYM_INFIX_DIV:
-		rem = mcb_define_value("_rem_", result->type, ctx->fn);
+		rem = mcb_define_value(NULL, result->type, ctx->fn);
 		if (mcb_inst_div(result, rem, lhs, rhs, ctx->fn))
 			panic("mcb_inst_div()");
 		break;
@@ -184,8 +182,7 @@ compile_cmp_expr(
 	rhs = compile_value(expr->inner.cmp.rhs, ctx);
 	if (!rhs)
 		panic("compile_value()");
-	result = mcb_define_value(
-			"cmp_result",
+	result = mcb_define_value(NULL,
 			mcb_get_type_from_builtin(MCB_CMP_RESULT),
 			ctx->fn);
 	if (!result)

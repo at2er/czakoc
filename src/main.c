@@ -14,6 +14,7 @@ static const char *usages[] = {
 "Usage: czakoc [OPTIONS]... <FILE>",
 "",
 "      --output-ast:           output AST to stdout",
+"      --output-ir:            output libmcb's IR",
 "      --output-lexer-tokens:  output tokens from lexer to stdout",
 "  -h, --help:                 show usages",
 NULL
@@ -22,6 +23,9 @@ static struct option options[] = {
 	OPT_FLAG("output-ast", NO_SHORT_NAME,
 			&czakoc_flags,
 			CZAKOC_OUTPUT_AST),
+	OPT_FLAG("output-ir", NO_SHORT_NAME,
+			&czakoc_flags,
+			CZAKOC_OUTPUT_IR),
 	OPT_FLAG("output-lexer-tokens", NO_SHORT_NAME,
 			&czakoc_flags,
 			CZAKOC_OUTPUT_LEXER_TOKENS),

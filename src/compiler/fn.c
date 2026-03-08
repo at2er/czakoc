@@ -19,8 +19,7 @@ compile_fn_call(struct zako_fn_call *call, struct compiler_context *ctx)
 	struct mcb_value *value;
 	struct mcb_value **args;
 	assert(call && ctx);
-	value = mcb_define_value(
-			"fn_call_result",
+	value = mcb_define_value(NULL,
 			mcb_type_from_zako(call->fn->type->inner.fn.type),
 			ctx->fn);
 	args = ecalloc(call->argc, sizeof(*args));
