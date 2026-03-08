@@ -27,7 +27,7 @@ static int compile_assign_expr(
 static struct mcb_value *compile_binary_expr(
 		struct zako_binary_expr *binary,
 		struct compiler_context *ctx);
-static int compile_assign_expr(
+static struct mcb_value *compile_cast_expr(
 		struct zako_binary_expr *binary,
 		struct compiler_context *ctx);
 static struct mcb_value *compile_primary_expr(
@@ -93,15 +93,6 @@ compile_assign_expr(
 }
 
 struct mcb_value *
-compile_primary_expr(
-		struct zako_value *primary,
-		struct compiler_context *ctx)
-{
-	assert(primary && ctx);
-	return compile_value(primary, ctx);
-}
-
-struct mcb_value *
 compile_binary_expr(
 		struct zako_binary_expr *binary,
 		struct compiler_context *ctx)
@@ -111,7 +102,7 @@ compile_binary_expr(
 	assert(binary && ctx);
 
 	if (binary->op == SYM_INFIX_AS)
-		return compile_value(binary->lhs, ctx);
+		return compile_cast_expr(binary, ctx);
 
 	expr = container_of(binary, struct zako_expr, inner.binary);
 	result = mcb_define_value(NULL,
@@ -142,6 +133,28 @@ compile_binary_expr(
 		break;
 	}
 	return result;
+}
+
+struct mcb_value *
+compile_cast_expr(
+		struct zako_binary_expr *binary,
+		struct compiler_context *ctx)
+{
+	// struct zako_expr *expr;
+	assert(binary && ctx);
+
+	// expr = container_of(binary, struct zako_expr, inner.binary);
+
+	return compile_value(binary->lhs, ctx);
+}
+
+struct mcb_value *
+compile_primary_expr(
+		struct zako_value *primary,
+		struct compiler_context *ctx)
+{
+	assert(primary && ctx);
+	return compile_value(primary, ctx);
 }
 
 enum MCB_CMP_OPERATOR
