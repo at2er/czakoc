@@ -28,8 +28,7 @@ compile_file(
 
 	if (czakoc_flags & CZAKOC_OUTPUT_IR)
 		mcb_output_context(ctx.mcb, stdout);
-
-	if (mcb_target_gnu_asm(stdout, ctx.mcb))
+	else if (mcb_target_gnu_asm(stdout, ctx.mcb))
 		goto err_destroy_ctx;
 
 	mcb_free_context(ctx.mcb);

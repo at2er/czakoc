@@ -52,9 +52,14 @@ compile_arr_let_stmt(
 
 	for (size_t i = 0; i < arr_type->size; i++) {
 		elem = container->inner.array.elems[i];
-		value = compile_value(elem_init->elems[i], ctx);
-		if (mcb_inst_store_value(elem, value, ctx->fn))
-			panic("mcb_inst_store_value()");
+		if (i < elem_init->elems_count) {
+			value = compile_value(elem_init->elems[i], ctx);
+			if (mcb_inst_store_value(elem, value, ctx->fn))
+				panic("mcb_inst_store_value()");
+		} else {
+			if (mcb_inst_store_int(elem, 0, ctx->fn))
+				panic("mcb_inst_store_value()");
+		}
 	}
 
 	return container;
