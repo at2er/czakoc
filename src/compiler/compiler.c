@@ -18,6 +18,9 @@ compile_file(
 	struct compiler_context ctx = {0};
 	assert(stmts && mod);
 
+	if (czakoc_flags & CZAKOC_OUTPUT_AST || czakoc_flags & CZAKOC_OUTPUT_LEXER_TOKENS)
+		return 0;
+
 	ctx.mcb = mcb_define_context();
 	ctx.mod = mod;
 

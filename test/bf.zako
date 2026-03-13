@@ -2,12 +2,34 @@ write syscall 1(fd u32, buf [u8], len u64) i32
 read syscall 0(fd u32, buf [u8], len u64) u64
 
 pub main fn(argc i32) i32 =
-	let mut idx u32 = 0
+	let mut arr [u8; 256] = {}
 	let input [u8; 256] = {}
-	let mut output [u8; 256] = {}
+	let mut pos u32 = 0
+	let mut ip u32 = 0
+	let mut output [u8; 1] = {}
 	read 0, input, 256
-	while input[idx] != 0 then
-		output[idx] = input[idx]
-		idx += 1
-	write 1, output, 256
+	while input[ip] != 0 then
+		if input[ip] == 43 then -- '+'
+			arr[pos] += 1
+		if input[ip] == 45 then -- '-'
+			arr[pos] -= 1
+		if input[ip] == 46 then -- '.'
+			output[0] = arr[pos]
+			write 1, output, 1
+		if input[ip] == 60 then -- '<'
+			pos -= 1
+		if input[ip] == 62 then -- '>'
+			pos += 1
+		if input[ip] == 91 then -- '['
+			if arr[pos] == 0 then
+				while input[ip] != 93 then -- ']'
+					if input[ip] == 0 then
+						return 0
+					ip += 1
+				ip -= 1
+		if input[ip] == 93 then -- ']'
+			if arr[pos] != 0 then
+				while input[ip] != 91 then -- '['
+					ip -= 1
+		ip += 1
 	return 0

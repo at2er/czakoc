@@ -118,7 +118,7 @@ struct sclexer {
 
 	bool _after_endl;
 	const char *_cur;
-	size_t _last_indent;
+	size_t _last_indent, _need_end_indent;
 	struct sclexer_loc _loc;
 };
 
@@ -404,19 +404,21 @@ bool _sclexer_try_indent(struct sclexer *self, struct sclexer_tok *tok)
 	size_t readed = 0;
 	if (!self->enable_indent)
 		return false;
-	if (!self->_after_endl)
+	if (!self->_after_endl && !self->_need_end_indent)
 		return false;
 	while (self->_cur[readed] == '\t')
 		readed++;
-	if (readed > self->_last_indent) {
-		tok->kind = SCLEXER_INDENT_BLOCK_BEGIN;
-		self->_last_indent++;
-	} else if (readed < self->_last_indent) {
+	if (readed < self->_last_indent || self->_need_end_indent) {
 		tok->kind = SCLEXER_INDENT_BLOCK_END;
 		self->_last_indent--;
+		self->_need_end_indent = self->_last_indent - readed;
+	} else if (readed > self->_last_indent) {
+		tok->kind = SCLEXER_INDENT_BLOCK_BEGIN;
+		self->_last_indent++;
 	} else {
 		return false;
 	}
+	self->_after_endl = false;
 	return true;
 }
 
@@ -499,10 +501,8 @@ bool sclexer_get_tok(struct sclexer *self,
 	tok->loc = self->_loc;
 	tok->kind = SCLEXER_UNKNOWN_TOK;
 
-	if (_sclexer_try_indent(self, tok)) {
-		self->_after_endl = false;
+	if (_sclexer_try_indent(self, tok))
 		return true;
-	}
 
 	if (self->_cur[0] == '\0') {
 		if (!self->_after_endl) {
@@ -563,6 +563,7 @@ void sclexer_init(struct sclexer *self, const char *fpath)
 	self->_loc.fpath  = fpath;
 	self->_loc.line   = 1;
 	self->_loc.column = 1;
+	self->_need_end_indent = 0;
 }
 
 const char *sclexer_kind_names(enum SCLEXER_TOK_KIND kind)
