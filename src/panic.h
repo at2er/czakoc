@@ -13,7 +13,7 @@
 #define panicf(FMT, ...) do { \
 	printf(PANIC_FMT FMT"\n", PANIC_FMT_ARG, __VA_ARGS__); \
 	abort(); \
-} whlie (0);
+} while (0);
 
 
 #endif

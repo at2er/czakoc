@@ -67,6 +67,8 @@ parse_fn_declaration(
 	darr_append(parser->cur_scope->parent->idents,
 			parser->cur_scope->parent->idents_count,
 			ident);
+	tok = peek_tok(parser);
+	declaration->end_at = tok->src.begin;
 	return declaration;
 }
 

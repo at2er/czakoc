@@ -79,21 +79,37 @@ err_block_end_not_found:
 struct zako_toplevel_stmt *
 parse_toplevel_stmt(struct sclexer_tok *tok, struct parser *parser)
 {
+	const char *begin;
+	struct zako_toplevel_stmt *stmt = NULL;
+
 	assert(tok && parser);
+
+	begin = tok->src.begin;
+
 	/* Definition also handle declaration,
 	 * but when declaration is correct and not have definition,
 	 * fallback to declaration. */
 	if (tok->kind == SCLEXER_IDENT) {
-		return parse_fn_definition(tok, parser, false);
+		stmt = parse_fn_definition(tok, parser, false);
 	} else if (tok->kind == SCLEXER_KEYWORD) {
 		switch (tok->data.keyword) {
 		case KEYWORD_PUB:
 			tok = eat_tok(parser);
-			return parse_fn_definition(tok, parser, true);
+			stmt = parse_fn_definition(tok, parser, true);
+			break;
 		default:
 			break;
 		}
 	}
-	print_err("unexpected token", tok);
-	return NULL;
+
+	if (!stmt) {
+		print_err("unexpected token", tok);
+		return NULL;
+	}
+
+	stmt->begin = begin;
+	tok = peek_tok(parser);
+	stmt->len = tok->src.begin - stmt->begin;
+
+	return stmt;
 }

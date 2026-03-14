@@ -50,7 +50,7 @@ compile_fn_declaration(
 	fn_type = &declaration->ident->type->inner.fn;
 
 	mcb_fn = mcb_define_func(
-			declaration->ident->name,
+			declaration->ident->mcb_name,
 			mcb_type_from_zako(fn_type->type),
 			declaration->public ? MCB_EXPORT_FUNC : MCB_LOCAL_FUNC,
 			ctx->mcb);

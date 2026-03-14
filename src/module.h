@@ -12,4 +12,7 @@ struct zako_module {
 	char file_path[PATH_MAX];
 };
 
+void free_module(struct zako_module *mod);
+char *gen_mod_prefix(const char *path);
+
 #endif

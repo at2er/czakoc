@@ -4,12 +4,10 @@
 #define UTILSH_PATH_MAX_H
 #ifndef PATH_MAX
 
-#if defined(__linux__)
-#include <linux/limits.h>
-#elif defined(__WIN32__)
+#if defined(__WIN32__)
 #define PATH_MAX 260
 #else
-#define PATH_MAX 4096
+#include <limits.h>
 #endif
 
 #endif /* PATH_MAX */

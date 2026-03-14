@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <stddef.h>
 #include <stdio.h>
+#include "cache.h"
 #include "parser.h"
 #include "sclexer.h"
 #include "scope.h"
@@ -13,6 +14,7 @@
 #include "../err.h"
 #include "../jim2.h"
 #include "../lexer.h"
+#include "../panic.h"
 #include "../stmt.h"
 
 static void print_ast_by_jim(
@@ -50,6 +52,8 @@ parse_file(const char *path)
 
 	mod = ecalloc(1, sizeof(*mod));
 	strcpy(mod->file_path, path);
+	mod->prefix = gen_mod_prefix(mod->file_path);
+	parser.mod = mod;
 
 	src = init_lexer(&lexer, path);
 
@@ -84,6 +88,8 @@ end:
 		print_ast_by_jim(stmts, stmts_count);
 	if (compile_file(stmts, stmts_count, mod))
 		goto err_compile_file;
+	if (cache_file(stmts, stmts_count, mod))
+		panic("cache_file()");
 
 	exit_scope(&parser);
 	for (size_t i = 0; i < stmts_count; i++)

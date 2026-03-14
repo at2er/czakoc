@@ -35,6 +35,9 @@ struct zako_toplevel_stmt {
 		struct zako_fn_declaration *fn_declaration;
 		struct zako_fn_definition *fn_definition;
 	} inner;
+
+	const char *begin;
+	size_t len;
 };
 
 void free_stmt(struct zako_stmt *self);

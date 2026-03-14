@@ -17,6 +17,9 @@ struct zako_ident {
 
 	bool mutable;
 
+	/* not all identifier has this */
+	char *mcb_name;
+
 	struct mcb_value *value;
 };
 

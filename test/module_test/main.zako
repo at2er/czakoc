@@ -1,0 +1,5 @@
+mod fmt = print_int
+
+pub main fn(argc i32) i32 =
+	fmt.print_int 2
+	return 0

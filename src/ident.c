@@ -9,6 +9,8 @@ free_ident(struct zako_ident *self)
 		return;
 	free(self->name);
 	free_type(self->type);
+	if (self->mcb_name)
+		free(self->mcb_name);
 	free(self);
 }
 

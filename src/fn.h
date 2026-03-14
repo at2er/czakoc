@@ -18,6 +18,8 @@ struct zako_fn_call {
 struct zako_fn_declaration {
 	struct zako_ident *ident;
 	bool public;
+
+	const char *end_at;
 };
 
 struct zako_fn_definition {

@@ -29,6 +29,9 @@ struct str {
 };
 
 /* @return: [s], if it succeeds, otherwise NULL. */
+extern struct str *str_append_chr(struct str *dst, char c);
+
+/* @return: [s], if it succeeds, otherwise NULL. */
 extern struct str *str_append_cstr(struct str *dst, const char *cstr);
 
 /* @return: [s], if it succeeds, otherwise NULL. */
@@ -74,6 +77,9 @@ extern struct str *str_realloc(struct str *s, size_t siz);
 #ifndef UTILSH_STR_DIE
 #define UTILSH_STR_DIE abort()
 #endif
+
+/* @return: [s] */
+extern struct str *estr_append_chr(struct str *dst, char c);
 
 /* @return: [s] */
 extern struct str *estr_append_cstr(struct str *dst, const char *cstr);
@@ -123,6 +129,20 @@ extern struct str *estr_realloc(struct str *s, size_t siz);
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* @return: [s], if it succeeds, otherwise NULL. */
+struct str *
+str_append_chr(struct str *dst, char c)
+{
+	if (!dst)
+		return NULL;
+	if (!str_realloc(dst, dst->len + 2))
+		return NULL;
+	dst->s[dst->len] = c;
+	dst->len += 1;
+	dst->s[dst->len] = '\0';
+	return dst;
+}
 
 struct str *
 str_append_cstr(struct str *dst, const char *cstr)
@@ -226,6 +246,10 @@ str_realloc(struct str *s, size_t siz)
 		} \
 		return ret; \
 	}
+
+struct str *
+estr_append_chr(struct str *dst, char c)
+	T(str_append_chr, dst, c)
 
 struct str *
 estr_append_cstr(struct str *dst, const char *cstr)
