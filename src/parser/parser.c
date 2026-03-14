@@ -38,6 +38,7 @@ print_ast_by_jim(
 struct zako_module *
 parse_file(const char *path)
 {
+	char *cache_path;
 	struct sclexer_tok *cur;
 	struct parser parser = {0};
 	struct sclexer lexer = {0};
@@ -55,7 +56,12 @@ parse_file(const char *path)
 	mod->prefix = gen_mod_prefix(mod->file_path);
 	parser.mod = mod;
 
-	src = init_lexer(&lexer, path);
+	cache_path = get_cache(mod->file_path);
+	if (!(czakoc_flags & CZAKOC_FORCE_BUILD) &&
+			has_cache(cache_path, mod->file_path))
+		strcpy(mod->file_path, cache_path);
+
+	src = init_lexer(&lexer, mod->file_path);
 
 	parser.tokens_count = sclexer_get_tokens(&lexer, &parser.tokens);
 	if (czakoc_flags & CZAKOC_OUTPUT_LEXER_TOKENS) {
@@ -103,7 +109,7 @@ err_unknown_token:
 	print_err("unkown token", cur);
 	goto err_free_all;
 err_compile_file:
-	printf_err_msg("compile file '%s'", path);
+	printf_err_msg("compile file '%s'", mod->file_path);
 err_free_all:
 	exit_scope(&parser);
 	for (size_t i = 0; i < stmts_count; i++)

@@ -10,5 +10,6 @@ int cache_file(struct zako_toplevel_stmt **stmts,
 		struct zako_module *mod);
 int create_cache_dir(void);
 char *get_cache(const char *path);
+bool has_cache(const char *cache, const char *src);
 
 #endif

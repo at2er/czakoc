@@ -1,3 +1,6 @@
+pub test fn(x i32) i32 =
+	return 1
+
 pub main fn(argc i32) i32 =
 	while 1 == 1 then
 		while 2 == 2 then

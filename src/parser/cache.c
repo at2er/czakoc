@@ -53,28 +53,16 @@ cache_file(struct zako_toplevel_stmt **stmts,
 		struct zako_module *mod)
 {
 	char *path, *path_cpy;
-	bool rebuild = true;
 	FILE *stream;
-	struct stat target_st, src_st;
 
 	assert(stmts && mod);
 	assert(*stmts);
 
-	/* don't generate cache when no cache directory */
-	if (!czakoc_cache_dir)
+	path = get_cache(mod->file_path);
+	if (!path)
 		return 0;
 
-	path = get_cache(mod->file_path);
-	if (stat(path, &target_st) == 0) {
-		if (S_ISDIR(target_st.st_mode))
-			panicf("%s is directory", path);
-		if (stat(mod->file_path, &src_st) != 0)
-			panic("stat()");
-		if (target_st.st_mtime >= src_st.st_mtime)
-			rebuild = false;
-	}
-
-	if (!rebuild) {
+	if (has_cache(path, mod->file_path)) {
 		free(path);
 		return 0;
 	}
@@ -124,7 +112,9 @@ get_cache(const char *path)
 	char *cwd_real, *path_real;
 	struct str result;
 
-	assert(czakoc_cache_dir);
+	if (!czakoc_cache_dir)
+		return NULL;
+
 	assert(path);
 
 	cwd_real = realpath(czakoc_cwd, NULL);
@@ -138,4 +128,29 @@ get_cache(const char *path)
 	free(path_real);
 
 	return result.s;
+}
+
+bool
+has_cache(const char *cache, const char *src)
+{
+	struct stat cache_st, src_st;
+
+	assert(src);
+	if (!cache)
+		return false;
+
+	if (stat(cache, &cache_st) != 0)
+		return false;
+	if (S_ISDIR(cache_st.st_mode))
+		panicf("%s is directory", cache);
+
+	if (czakoc_flags & CZAKOC_FORCE_BUILD)
+		return false;
+
+	if (stat(src, &src_st) != 0)
+		panic("stat()");
+
+	if (cache_st.st_mtime < src_st.st_mtime)
+		return false;
+	return true;
 }

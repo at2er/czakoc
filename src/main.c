@@ -24,6 +24,7 @@ static const char *usages[] = {
 "Usage: czakoc [OPTIONS]... <FILE>",
 "",
 "  -D, --cache-dir:            cache directory",
+"  -f, --force-build:          force rebuild files",
 "  -M, --root-module:          root module's name",
 "      --output-ast:           output AST to stdout",
 "      --output-ir:            output libmcb's IR",
@@ -33,6 +34,7 @@ NULL
 };
 static struct option options[] = {
 	OPT_STRING("cache-dir",   'D', &czakoc_cache_dir),
+	OPT_FLAG("force-build",   'F', &czakoc_flags, CZAKOC_FORCE_BUILD),
 	OPT_STRING("root-module", 'M', &czakoc_root_mod),
 	OPT_FLAG("output-ast", NO_SHORT_NAME,
 			&czakoc_flags,
