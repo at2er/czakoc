@@ -11,5 +11,8 @@ struct sclexer_tok *peek_tok(struct parser *parser);
 struct sclexer_tok *peek_tok_to(struct parser *parser, int count);
 struct sclexer_tok *peek_tok_skip_white(struct parser *parser);
 void skip_white_tok(struct parser *parser);
+struct str *str_from_sclexer_str_slice(
+		struct str *s,
+		struct sclexer_str_slice *slice);
 
 #endif

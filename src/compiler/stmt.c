@@ -45,6 +45,8 @@ compile_toplevel_stmt(
 		return compile_fn_definition(
 				stmt->inner.fn_definition,
 				ctx);
+	case MODULE_IMPORT:
+		break;
 	}
 	return 0;
 }

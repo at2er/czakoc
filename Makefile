@@ -16,6 +16,7 @@ CC_CMD = $(CC) $(CFLAGS) -g3 -c -o $@ $<
 
 all: libmcb $(TARGET)
 
+libmcb/libmcb.a: libmcb
 libmcb:
 	@$(MAKE) -C libmcb
 

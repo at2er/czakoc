@@ -15,6 +15,7 @@
 #include "../fn.h"
 #include "../ident.h"
 #include "../lexer.h"
+#include "../scope.h"
 
 static struct zako_fn_definition *parse_fn_body(
 		struct zako_fn_declaration *declaration,
@@ -54,19 +55,32 @@ parse_fn_declaration(
 		struct parser *parser,
 		bool public)
 {
+	struct zako_scope *append_to;
 	struct zako_fn_declaration *declaration;
+	struct zako_fn_type *fn_type;
 	struct zako_ident *ident;
 	assert(tok && parser);
 	assert(tok->kind == SCLEXER_IDENT);
+
 	ident = parse_ident_sign(tok, parser);
 	if (!ident)
 		return NULL;
+
 	declaration = ecalloc(1, sizeof(*declaration));
 	declaration->ident = ident;
 	declaration->public = public;
-	darr_append(parser->cur_scope->parent->idents,
-			parser->cur_scope->parent->idents_count,
-			ident);
+
+	append_to = parser->cur_scope->parent;
+	if (public)
+		append_to = parser->mod->scope;
+	darr_append(append_to->idents, append_to->idents_count, ident);
+
+	fn_type = &ident->type->inner.fn;
+	for (int i = 0; i < fn_type->argc; i++)
+		darr_append(parser->cur_scope->idents,
+				parser->cur_scope->idents_count,
+				fn_type->args[i]);
+
 	tok = peek_tok(parser);
 	declaration->end_at = tok->src.begin;
 	return declaration;
@@ -197,11 +211,6 @@ parse_fn_sign(struct zako_fn_type *type, struct parser *parser)
 	type->type = parse_type(parser);
 	if (!type->type)
 		goto err_free_args;
-	for (int i = 0; i < type->argc; i++) {
-		darr_append(parser->cur_scope->idents,
-				parser->cur_scope->idents_count,
-				type->args[i]);
-	}
 	return 0;
 err_unexpected_symbol:
 	printf_err("unexpected symbol '%s'",

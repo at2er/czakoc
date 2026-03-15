@@ -4,16 +4,39 @@
 #include <string.h>
 #include "czakoc.h"
 #include "ealloc.h"
+#include "jim2.h"
 #include "module.h"
+#include "scope.h"
 #include "str.h"
 
-void
-free_module(struct zako_module *mod)
+struct zako_module *
+create_module(const char *path)
 {
-	if (!mod)
+	struct zako_module *self;
+	self = ecalloc(1, sizeof(*self));
+	self->prefix = gen_mod_prefix(path);
+	self->scope = ecalloc(1, sizeof(*self->scope));
+	strcpy(self->file_path, path);
+	return self;
+}
+
+void
+free_module(struct zako_module *self)
+{
+	if (!self)
 		return;
-	free(mod->prefix);
-	free(mod);
+	free(self->prefix);
+	for (size_t i = 0; i < self->scope->idents_count; i++)
+		free_ident(self->scope->idents[i]);
+	free(self);
+}
+
+void
+free_module_import(struct zako_module_import *self)
+{
+	if (!self)
+		return;
+	free(self);
 }
 
 char *
@@ -45,4 +68,18 @@ gen_mod_prefix(const char *path)
 	free(path_real);
 
 	return result.s;
+}
+
+void
+print_module_import(struct zako_module_import *self, Jim *jim)
+{
+	Jim fallback = {.pp = JIM_PP};
+	if (!self)
+		return;
+	if (!jim)
+		jim = &fallback;
+	jim_object_begin(jim);
+	jim_member_key(jim, "name");
+	jim_string(jim, self->name);
+	jim_object_end(jim);
 }

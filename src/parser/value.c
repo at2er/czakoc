@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <stdbool.h>
 #include "expr.h"
+#include "fn.h"
 #include "parser.h"
 #include "scope.h"
 #include "type.h"
@@ -10,6 +11,7 @@
 #include "../ealloc.h"
 #include "../err.h"
 #include "../lexer.h"
+#include "../scope.h"
 #include "../value.h"
 
 static int parse_arr_elem_value(
@@ -134,6 +136,7 @@ parse_value_by_sclexer_ident(
 {
 	struct zako_ident *ident;
 	char *ident_name;
+	struct zako_module *mod;
 	assert(tok && value && parser);
 	assert(tok->kind == SCLEXER_IDENT);
 
@@ -141,11 +144,26 @@ parse_value_by_sclexer_ident(
 
 	ident_name = dup_slice_to_cstr(&tok->data.str);
 	value->kind = IDENT_VALUE;
-	value->data.ident = ident = find_ident_in_scope(
+	ident = find_ident_in_scope(
 			ident_name,
 			parser->cur_scope);
-	if (!value->data.ident)
-		goto err_ident_not_found;
+	if (!ident) {
+		mod = find_module(ident_name, parser);
+		if (!mod)
+			goto err_ident_not_found;
+		tok = eat_tok_skip_white(parser);
+		if (tok->kind != SCLEXER_SYMBOL || tok->data.symbol != SYM_DOT)
+			goto err_unexpected_token;
+		tok = eat_tok_skip_white(parser);
+		if (tok->kind != SCLEXER_IDENT)
+			goto err_unexpected_token;
+		free(ident_name);
+		ident_name = dup_slice_to_cstr(&tok->data.str);
+		ident = find_ident_in_scope(ident_name, mod->scope);
+		if (!ident)
+			goto err_ident_not_found;
+	}
+	value->data.ident = ident;
 
 	free(ident_name);
 
@@ -168,6 +186,10 @@ parse_value_by_sclexer_ident(
 	return 0;
 err_ident_not_found:
 	printf_err("identifier '%s' not found", tok, ident_name);
+	goto err_free_ident_name;
+err_unexpected_token:
+	print_err("parse value: unexpected token", tok);
+err_free_ident_name:
 	free(ident_name);
 	return 1;
 }

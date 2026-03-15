@@ -12,6 +12,7 @@
 #include "../err.h"
 #include "../let.h"
 #include "../lexer.h"
+#include "../scope.h"
 #include "../semantics/expr.h"
 #include "../semantics/semantics.h"
 

@@ -4,6 +4,7 @@
 #include "fn.h"
 #include "if.h"
 #include "let.h"
+#include "module.h"
 #include "return.h"
 #include "stmt.h"
 #include "while.h"
@@ -44,6 +45,9 @@ free_toplevel_stmt(struct zako_toplevel_stmt *self)
 		break;
 	case FN_DEFINITION:
 		free_fn_definition(self->inner.fn_definition);
+		break;
+	case MODULE_IMPORT:
+		free_module_import(self->inner.mod_import);
 		break;
 	}
 	free(self);
@@ -97,6 +101,9 @@ print_toplevel_stmt(struct zako_toplevel_stmt *self, Jim *jim)
 		return;
 	case FN_DEFINITION:
 		print_fn_definition(self->inner.fn_definition, jim);
+		break;
+	case MODULE_IMPORT:
+		print_module_import(self->inner.mod_import, jim);
 		break;
 	}
 }

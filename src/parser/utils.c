@@ -5,6 +5,7 @@
 #include "sclexer.h"
 #include "utils.h"
 #include "../ealloc.h"
+#include "../str.h"
 
 char *
 dup_slice_to_cstr(struct sclexer_str_slice *slice)
@@ -89,4 +90,15 @@ skip_white_tok(struct parser *parser)
 		eat_tok(parser);
 		tok = peek_tok(parser);
 	}
+}
+
+struct str *
+str_from_sclexer_str_slice(
+		struct str *s,
+		struct sclexer_str_slice *slice)
+{
+	assert(s && slice);
+	s->s = (char*)slice->begin;
+	s->siz = s->len = slice->len;
+	return s;
 }

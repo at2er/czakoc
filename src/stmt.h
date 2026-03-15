@@ -26,14 +26,20 @@ struct zako_stmt {
 	} inner;
 };
 
+struct zako_fn_declaration;
+struct zako_fn_definition;
+struct zako_module_import;
+
 struct zako_toplevel_stmt {
 	enum TOPLEVEL_STMT_KIND {
 		FN_DECLARATION,
-		FN_DEFINITION
+		FN_DEFINITION,
+		MODULE_IMPORT
 	} kind;
 	union {
 		struct zako_fn_declaration *fn_declaration;
 		struct zako_fn_definition *fn_definition;
+		struct zako_module_import *mod_import;
 	} inner;
 
 	const char *begin;

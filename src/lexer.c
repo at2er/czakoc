@@ -8,6 +8,7 @@ static const char *keywords[] = {
 	[KEYWORD_FN]      = "fn",
 	[KEYWORD_IF]      = "if",
 	[KEYWORD_LET]     = "let",
+	[KEYWORD_MOD]     = "mod",
 	[KEYWORD_MUT]     = "mut",
 	[KEYWORD_PUB]     = "pub",
 	[KEYWORD_RETURN]  = "return",
@@ -33,6 +34,7 @@ static const char *symbols[] = {
 	[SYM_PAREN_L]             = "(",
 	[SYM_PAREN_R]             = ")",
 	[SYM_COMMA]               = ",",
+	[SYM_DOT]                 = ".",
 	[SYM_SEMICOLON]           = ";",
 
 	[SYM_ASSIGN]              = "=",

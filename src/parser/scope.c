@@ -4,6 +4,7 @@
 #include "scope.h"
 #include "../ealloc.h"
 #include "../ident.h"
+#include "../scope.h"
 
 void
 enter_scope(struct parser *parser)
@@ -24,20 +25,5 @@ exit_scope(struct parser *parser)
 	assert(parser->cur_scope);
 	self = parser->cur_scope;
 	parser->cur_scope = parser->cur_scope->parent;
-	/* elements of self->idents will be freed by parser. */
-	free(self->idents);
-	free(self);
-}
-
-struct zako_ident *
-find_ident_in_scope(const char *name, struct zako_scope *scope)
-{
-	while (scope) {
-		for (size_t i = 0; i < scope->idents_count; i++) {
-			if (strcmp(name, scope->idents[i]->name) == 0)
-				return scope->idents[i];
-		}
-		scope = scope->parent;
-	}
-	return NULL;
+	free_scope(self);
 }

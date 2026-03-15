@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include "cache.h"
@@ -36,13 +37,23 @@ print_ast_by_jim(
 }
 
 struct zako_module *
+find_module(const char *name, struct parser *parser)
+{
+	for (int i = 0; i < parser->imported_count; i++) {
+		if (strcmp(name, parser->imported[i]->name) == 0)
+			return parser->imported[i]->mod;
+	}
+	return NULL;
+}
+
+struct zako_module *
 parse_file(const char *path)
 {
 	char *cache_path;
 	struct sclexer_tok *cur;
-	struct parser parser = {0};
+	bool _has_cache = false;
 	struct sclexer lexer = {0};
-	struct zako_module *mod;
+	struct parser parser = {0};
 	char *src;
 	struct zako_toplevel_stmt *stmt;
 	struct zako_toplevel_stmt **stmts = NULL;
@@ -51,17 +62,16 @@ parse_file(const char *path)
 
 	enter_scope(&parser);
 
-	mod = ecalloc(1, sizeof(*mod));
-	strcpy(mod->file_path, path);
-	mod->prefix = gen_mod_prefix(mod->file_path);
-	parser.mod = mod;
+	parser.mod = create_module(path);
 
-	cache_path = get_cache(mod->file_path);
-	if (!(czakoc_flags & CZAKOC_FORCE_BUILD) &&
-			has_cache(cache_path, mod->file_path))
-		strcpy(mod->file_path, cache_path);
+	cache_path = get_cache(path);
+	if (!(czakoc_flags & CZAKOC_FORCE_BUILD)) {
+		_has_cache = has_cache(cache_path, path);
+		if (_has_cache)
+			path = cache_path;
+	}
 
-	src = init_lexer(&lexer, mod->file_path);
+	src = init_lexer(&lexer, path);
 
 	parser.tokens_count = sclexer_get_tokens(&lexer, &parser.tokens);
 	if (czakoc_flags & CZAKOC_OUTPUT_LEXER_TOKENS) {
@@ -92,10 +102,12 @@ parse_file(const char *path)
 end:
 	if (czakoc_flags & CZAKOC_OUTPUT_AST)
 		print_ast_by_jim(stmts, stmts_count);
-	if (compile_file(stmts, stmts_count, mod))
+	if (compile_file(stmts, stmts_count, parser.mod))
 		goto err_compile_file;
-	if (cache_file(stmts, stmts_count, mod))
-		panic("cache_file()");
+	if (!_has_cache) {
+		if (cache_file(stmts, stmts_count, parser.mod))
+			panic("cache_file()");
+	}
 
 	exit_scope(&parser);
 	for (size_t i = 0; i < stmts_count; i++)
@@ -104,12 +116,12 @@ end:
 	free(parser.tokens);
 
 	free(src);
-	return mod;
+	return parser.mod;
 err_unknown_token:
 	print_err("unkown token", cur);
 	goto err_free_all;
 err_compile_file:
-	printf_err_msg("compile file '%s'", mod->file_path);
+	printf_err_msg("compile file '%s'", path);
 err_free_all:
 	exit_scope(&parser);
 	for (size_t i = 0; i < stmts_count; i++)
@@ -117,6 +129,6 @@ err_free_all:
 	free(stmts);
 	free(parser.tokens);
 	free(src);
-	free(mod);
+	free_module(parser.mod);
 	return NULL;
 }

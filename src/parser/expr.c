@@ -8,6 +8,7 @@
 #include "../ealloc.h"
 #include "../err.h"
 #include "../expr.h"
+#include "../ident.h"
 #include "../lexer.h"
 #include "../panic.h"
 #include "../semantics/expr.h"

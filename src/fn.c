@@ -30,7 +30,8 @@ free_fn_declaration(struct zako_fn_declaration *self)
 {
 	if (!self)
 		return;
-	free_ident(self->ident);
+	if (!self->public)
+		free_ident(self->ident);
 	free(self);
 }
 

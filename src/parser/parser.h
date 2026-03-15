@@ -11,11 +11,17 @@ struct parser {
 	struct sclexer_tok *tokens;
 	size_t tokens_count;
 
+	struct zako_module_import **imported;
+	int imported_count;
 	struct zako_module *mod;
 
 	struct zako_scope *cur_scope;
+	struct zako_scope *public;
 };
 
+struct zako_module *find_module(
+		const char *name,
+		struct parser *parser);
 struct zako_module *parse_file(const char *path);
 
 #endif

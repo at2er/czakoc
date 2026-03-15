@@ -3,6 +3,7 @@
 #include "fn.h"
 #include "if.h"
 #include "let.h"
+#include "module.h"
 #include "parser.h"
 #include "return.h"
 #include "sclexer.h"
@@ -93,6 +94,9 @@ parse_toplevel_stmt(struct sclexer_tok *tok, struct parser *parser)
 		stmt = parse_fn_definition(tok, parser, false);
 	} else if (tok->kind == SCLEXER_KEYWORD) {
 		switch (tok->data.keyword) {
+		case KEYWORD_MOD:
+			stmt = parse_module_import(tok, parser);
+			break;
 		case KEYWORD_PUB:
 			tok = eat_tok(parser);
 			stmt = parse_fn_definition(tok, parser, true);
