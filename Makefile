@@ -14,7 +14,8 @@ OBJ_DEPS = $(addprefix $(BUILD_DIR)/,$(SRC:.c=.d))
 
 CC_CMD = $(CC) $(CFLAGS) -g3 -c -o $@ $<
 
-all: libmcb $(TARGET)
+all: gen/ast.h gen/parser
+#all: libmcb $(TARGET)
 
 libmcb/libmcb.a: libmcb
 libmcb:
@@ -45,10 +46,23 @@ install:
 uninstall:
 	rm -f $(TARGET_DIR)/$(TARGET)
 
+gen/%: gen/%.c
+	@echo "  TOOL  " $@
+	@$(CC) $(CFLAGS) -g3 -MMD -o $@ $<
+
+gen/ast.h: gen/ast gen/ast.def
+	@echo "  GEN   " $@
+	@gen/ast < gen/ast.def > $@
+
+gen/parser.h: gen/parser gen/parser.def
+	@gen/parser < gen/parser.def > $@
+
 %.h:
 	@:
 ifeq (,$(filter clean,$(MAKECMDGOALS)))
 -include $(OBJ_DEPS)
+-include gen/ast.d
+-include gen/parser.d
 endif
 
 .PHONY: all clean clean-all clean-mcb install uninstall

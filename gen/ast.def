@@ -1,0 +1,42 @@
+-- #proc tagenum(body struct.body) = {
+-- 	`struct {`
+-- 	iter body {
+-- 		`$body.ident $body.type`
+-- 	}
+-- 	`}`
+-- }
+-- 
+-- #proc darr(sign array.sign) = {
+-- 	`struct { e [$sign]; len u64 }`
+-- }
+
+Expr type = struct {
+	op ExprOP
+	values #darr[Value]
+}
+
+Stmt type = #tagenum {
+	ident_def struct {
+		id Ident
+		val Expr
+	}
+	if_stmt struct {
+		cond Expr
+		then #darr[Stmt]
+	}
+	return_stmt Expr
+}
+
+TopStmt type = #tagenum {
+	fn_def Ident
+	fn_dec struct {
+		dec Ident
+		body #darr[Stmt]
+	}
+}
+
+Value type = #tagenum {
+	expr Expr
+	Int  i64
+	UInt u64
+}

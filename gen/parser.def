@@ -1,0 +1,12 @@
+zako.fn(sign zako.ident_sign) = {
+	expect(ASSIGN)
+	scope()
+		
+}
+
+zako.top_ident() = {
+	id_sign = zako.ident_sign
+	if id_sign.typ == zako.type.fn {
+		return zako.fn(id_sign)
+	}
+}
