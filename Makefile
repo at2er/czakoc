@@ -6,7 +6,7 @@ BUILD_DIR = build
 
 TARGET = czakoc
 
-SUB_DIRS = src src/compiler src/parser src/semantics
+SUB_DIRS = lib src src/compiler src/parser src/semantics
 SRC = $(wildcard *.c $(addsuffix /*.c,$(SUB_DIRS)))
 OBJ = $(addprefix $(BUILD_DIR)/,$(SRC:.c=.o))
 OBJ_DIRS = $(BUILD_DIR) $(addprefix $(BUILD_DIR)/,$(SUB_DIRS))
@@ -14,8 +14,8 @@ OBJ_DEPS = $(addprefix $(BUILD_DIR)/,$(SRC:.c=.d))
 
 CC_CMD = $(CC) $(CFLAGS) -g3 -c -o $@ $<
 
-all: gen/ast.h gen/parser
 #all: libmcb $(TARGET)
+all: gen/ast.h $(TARGET)
 
 libmcb/libmcb.a: libmcb
 libmcb:
@@ -28,7 +28,7 @@ $(BUILD_DIR)/%.o: %.c | $(OBJ_DIRS)
 	@echo "  CC    " $@
 	@$(CC_CMD) -MMD
 
-$(TARGET): $(OBJ) libmcb/libmcb.a
+$(TARGET): $(OBJ)
 	@echo "  LD    " $@
 	@$(CC) -o $@ $(OBJ) $(LDFLAGS)
 
@@ -36,7 +36,9 @@ clean:
 	@echo "  CLEAN"
 	@rm -f $(OBJ) $(TARGET)
 
-clean-all: clean clean-mcb
+clean-all: clean clean-gen clean-mcb
+clean-gen:
+	rm -f gen/ast.h
 clean-mcb:
 	@$(MAKE) -C libmcb clean
 
@@ -54,16 +56,12 @@ gen/ast.h: gen/ast gen/ast.def
 	@echo "  GEN   " $@
 	@gen/ast < gen/ast.def > $@
 
-gen/parser.h: gen/parser gen/parser.def
-	@gen/parser < gen/parser.def > $@
-
 %.h:
 	@:
 ifeq (,$(filter clean,$(MAKECMDGOALS)))
 -include $(OBJ_DEPS)
 -include gen/ast.d
--include gen/parser.d
 endif
 
-.PHONY: all clean clean-all clean-mcb install uninstall
+.PHONY: all clean clean-all clean-gen clean-mcb install uninstall
 .PHONY: libmcb

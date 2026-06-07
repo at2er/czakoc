@@ -18,4 +18,6 @@ extern const char *czakoc_cache_dir;
 extern const char *czakoc_cwd;
 extern const char *czakoc_root_mod;
 
+int parse_file(const char *path);
+
 #endif

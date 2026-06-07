@@ -4,9 +4,6 @@
 #include <unistd.h>
 #include "czakoc.h"
 #include "err.h"
-#include "module.h"
-#include "parser/cache.h"
-#include "parser/parser.h"
 
 #define GETARG_IMPL
 #include "getarg.h"
@@ -72,7 +69,7 @@ int
 main(int argc, char *argv[])
 {
 	char *cwd = NULL;
-	struct zako_module *mod;
+	//struct zako_module *mod;
 	if (parse_cmdline_args(argc, argv))
 		return 1;
 	if (!entry_file) {
@@ -87,13 +84,13 @@ main(int argc, char *argv[])
 	if (!czakoc_root_mod)
 		czakoc_root_mod = basename(cwd);
 
-	if (create_cache_dir())
-		return 1;
+	//if (create_cache_dir())
+	//	return 1;
 
-	mod = parse_file(entry_file);
-	if (!mod)
-		return 1;
-	free_module(mod);
+	parse_file(entry_file);
+	//if (!mod)
+	//	return 1;
+	//free_module(mod);
 
 	if (cwd)
 		free(cwd);

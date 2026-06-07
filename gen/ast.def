@@ -1,13 +1,13 @@
--- #proc tagenum(body struct.body) = {
--- 	`struct {`
--- 	iter body {
--- 		`$body.ident $body.type`
+-- tagenum macro(body struct) = struct {
+-- 	$body
+-- 	`for member in body.members {
+-- 		member.name member.type
 -- 	}
--- 	`}`
 -- }
 -- 
--- #proc darr(sign array.sign) = {
--- 	`struct { e [$sign]; len u64 }`
+-- darr macro(sign array.sign) = struct {
+-- 	e   [$sign]
+-- 	len u64
 -- }
 
 Expr type = struct {

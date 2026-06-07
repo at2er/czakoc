@@ -1,6 +1,9 @@
 build
 compile_commands.json
 czakoc
+gen/ast
+gen/*.d
+gen/*.h
 log*
 path.vim
 Session.vim
@@ -8,4 +11,5 @@ test/test
 .cache
 *.o
 *.s
+*.tok
 !test/_start.s

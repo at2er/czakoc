@@ -42,6 +42,7 @@ static int parse_struct(int indent, char *id, char *name);
 static int parse_struct_member(int indent, struct sclexer_tok *ident);
 static int parse_tagenum(int indent, char *name);
 static void putindent(int level);
+static void putname(char *name);
 
 static const char *tokens[] = {
 	[TOK_ASSIGN]   = "=",
@@ -94,6 +95,7 @@ parse(void)
 void
 parse_darr(void)
 {
+	char *tmp;
 	struct sclexer_tok type;
 	nextor err_eof;
 	expect(TOK_LBRACKET);
@@ -101,7 +103,11 @@ parse_darr(void)
 	type = tok;
 	nextor err_eof;
 	expect(TOK_RBRACKET);
-	fprintf(stdout, "darr(%.*s) ", type.len, type.str);
+	tmp = strndup(type.str, type.len);
+	fputs("darr(struct ", stdout);
+	putname(tmp);
+	fputs(") ", stdout);
+	free(tmp);
 }
 
 int
@@ -112,8 +118,11 @@ parse_struct(int indent, char *id, char *name)
 	nextorend;
 	expect(TOK_LBRACE);
 	fputs("struct ", stdout);
-	if (name)
-		printf("%s ", name);
+
+	if (name) {
+		putname(name);
+		putc(' ', stdout);
+	}
 	puts("{");
 
 	while (parse_struct_member(indent, &ident));
@@ -130,7 +139,7 @@ parse_struct(int indent, char *id, char *name)
 int
 parse_struct_member(int indent, struct sclexer_tok *ident)
 {
-	char *name;
+	char *name, *tmp;
 
 	nextor err_eof;
 	if (tok.type == TOK_RBRACE)
@@ -149,7 +158,11 @@ parse_struct_member(int indent, struct sclexer_tok *ident)
 		fputs("int64_t ", stdout);
 		goto putname;
 	case TOK_IDENT:
-		printf("struct %.*s ", tok.len, tok.str);
+		tmp = strndup(tok.str, tok.len);
+		fputs("struct ", stdout);
+		putname(tmp);
+		putc(' ', stdout);
+		free(tmp);
 		goto putname;
 	case TOK_STRUCT:
 		parse_struct(indent + 1, name, NULL);
@@ -180,7 +193,9 @@ parse_tagenum(int indent, char *name)
 
 	nextorend;
 	expect(TOK_LBRACE);
-	printf("struct %s {\n", name);
+	fputs("struct ", stdout);
+	putname(name);
+	puts(" {");
 	putindent(indent + 1);
 	puts("union {");
 
@@ -219,6 +234,17 @@ putindent(int level)
 {
 	for (int i = 0; i < level; i++)
 		putc('\t', stdout);
+}
+
+void
+putname(char *name)
+{
+	fputs("zk", stdout);
+	for (char *c = name; *c; c++) {
+		if (isupper(*c))
+			putc('_', stdout);
+		putc(tolower(*c), stdout);
+	}
 }
 
 int
