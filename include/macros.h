@@ -8,6 +8,7 @@
 #ifndef UTILSH_MACROS_H
 #define UTILSH_MACROS_H
 
+#define BETWEEN(X, A, B) ((X) >= (A) && (X) <= (B))
 #define LENGTH(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
 #endif

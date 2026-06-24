@@ -12,10 +12,13 @@
 
 struct sclexer;
 struct sclexer {
+	int ident_tok,
+	    int_tok,
+	    eol_tok;
+
 	int (*ident_reader)(struct sclexer *lexer);
 	int (*int_reader)(struct sclexer *lexer);
 
-	int ident_tok, int_tok;
 	const char **tokens;
 	const char **comments;
 
@@ -102,9 +105,12 @@ int
 sclexer_next(struct sclexer *lexer, struct sclexer_tok *tok)
 {
 	const char *orig = lexer->pos;
+	int ret;
 	tok->path = lexer->path;
 
-	while (sclexer_skip_space(lexer, tok));
+	while ((ret = sclexer_skip_space(lexer, tok)) > 0);
+	if (ret < 0) /* return special tokens like EOL */
+		goto end;
 	tok->str = lexer->pos;
 	tok->row = lexer->row;
 	tok->col = lexer->col;
@@ -168,7 +174,14 @@ sclexer_skip_space(struct sclexer *lexer, struct sclexer_tok *tok)
 	if (*p == '\n') {
 		lexer->row++;
 		lexer->col = 0;
-		lexer->pos = p + 1;
+		if (lexer->eol_tok != -1) {
+			tok->len = 1;
+			tok->str = lexer->pos;
+			tok->type = lexer->eol_tok;
+			return -1;
+		} else {
+			lexer->pos = p + 1;
+		}
 		return 1;
 	} else if ((len = sclexer_has_match(lexer->comments, p, NULL))) {
 		for (p += len; *p && *p != '\n'; p++)

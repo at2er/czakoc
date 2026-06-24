@@ -6,7 +6,7 @@ BUILD_DIR = build
 
 TARGET = czakoc
 
-SUB_DIRS = lib src src/compiler src/parser src/semantics
+SUB_DIRS = lib
 SRC = $(wildcard *.c $(addsuffix /*.c,$(SUB_DIRS)))
 OBJ = $(addprefix $(BUILD_DIR)/,$(SRC:.c=.o))
 OBJ_DIRS = $(BUILD_DIR) $(addprefix $(BUILD_DIR)/,$(SUB_DIRS))
@@ -14,12 +14,7 @@ OBJ_DEPS = $(addprefix $(BUILD_DIR)/,$(SRC:.c=.d))
 
 CC_CMD = $(CC) $(CFLAGS) -g3 -c -o $@ $<
 
-#all: libmcb $(TARGET)
 all: gen/ast.h $(TARGET)
-
-libmcb/libmcb.a: libmcb
-libmcb:
-	@$(MAKE) -C libmcb
 
 $(OBJ_DIRS):
 	mkdir -p $@
@@ -36,11 +31,9 @@ clean:
 	@echo "  CLEAN"
 	@rm -f $(OBJ) $(TARGET)
 
-clean-all: clean clean-gen clean-mcb
+clean-all: clean clean-gen
 clean-gen:
 	rm -f gen/ast.h
-clean-mcb:
-	@$(MAKE) -C libmcb clean
 
 install:
 	cp -f $(TARGET) $(TARGET_DIR)/$(TARGET)
@@ -63,5 +56,4 @@ ifeq (,$(filter clean,$(MAKECMDGOALS)))
 -include gen/ast.d
 endif
 
-.PHONY: all clean clean-all clean-gen clean-mcb install uninstall
-.PHONY: libmcb
+.PHONY: all clean clean-all clean-gen install uninstall

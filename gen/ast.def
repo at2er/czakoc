@@ -1,23 +1,11 @@
--- tagenum macro(body struct) = struct {
--- 	$body
--- 	`for member in body.members {
--- 		member.name member.type
--- 	}
--- }
--- 
--- darr macro(sign array.sign) = struct {
--- 	e   [$sign]
--- 	len u64
--- }
-
 Expr type = struct {
-	op ExprOP
+	op TOKEN
 	values #darr[Value]
 }
 
-Stmt type = #tagenum {
+Stmt type = enum #tag {
 	ident_def struct {
-		id Ident
+		id IDENT
 		val Expr
 	}
 	if_stmt struct {
@@ -27,16 +15,16 @@ Stmt type = #tagenum {
 	return_stmt Expr
 }
 
-TopStmt type = #tagenum {
-	fn_def Ident
-	fn_dec struct {
-		dec Ident
+TopStmt type = enum #tag {
+	fn_dec IDENT
+	fn_def struct {
+		dec IDENT
 		body #darr[Stmt]
 	}
 }
 
-Value type = #tagenum {
+Value type = enum #tag {
 	expr Expr
-	Int  i64
-	UInt u64
+	int_ i64
+	uint u64
 }

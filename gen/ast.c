@@ -20,11 +20,14 @@
 enum TOKEN {
 	TOK_ASSIGN,
 	TOK_DARR,
+	TOK_ENUM,
 	TOK_STRUCT,
-	TOK_TAGENUM,
+	TOK_TAG,
+	TOK_TOKEN,
 	TOK_TYPE,
 	TOK_I64,
 	TOK_U64,
+	TOK_IDENT_,
 
 	TOK_LBRACE,
 	TOK_RBRACE,
@@ -38,20 +41,23 @@ enum TOKEN {
 
 static int parse(void);
 static void parse_darr(void);
+static int parse_enum(int indent, char *name);
 static int parse_struct(int indent, char *id, char *name);
 static int parse_struct_member(int indent, struct sclexer_tok *ident);
-static int parse_tagenum(int indent, char *name);
 static void putindent(int level);
 static void putname(char *name);
 
 static const char *tokens[] = {
 	[TOK_ASSIGN]   = "=",
 	[TOK_DARR]     = "#darr",
+	[TOK_ENUM]     = "enum",
 	[TOK_STRUCT]   = "struct",
-	[TOK_TAGENUM]  = "#tagenum",
+	[TOK_TAG]      = "#tag",
+	[TOK_TOKEN]    = "TOKEN",
 	[TOK_TYPE]     = "type",
 	[TOK_I64]      = "i64",
 	[TOK_U64]      = "u64",
+	[TOK_IDENT_]   = "IDENT",
 	[TOK_LBRACE]   = "{",
 	[TOK_RBRACE]   = "}",
 	[TOK_LBRACKET] = "[",
@@ -85,8 +91,8 @@ parse(void)
 	switch (tok.type) {
 	case TOK_STRUCT:
 		return parse_struct(0, NULL, ident);
-	case TOK_TAGENUM:
-		return parse_tagenum(0, ident);
+	case TOK_ENUM:
+		return parse_enum(0, ident);
 		break;
 	}
 	return 1;
@@ -104,10 +110,58 @@ parse_darr(void)
 	nextor err_eof;
 	expect(TOK_RBRACKET);
 	tmp = strndup(type.str, type.len);
-	fputs("darr(struct ", stdout);
 	putname(tmp);
-	fputs(") ", stdout);
+	fputs("s_t ", stdout);
 	free(tmp);
+}
+
+int
+parse_enum(int indent, char *name)
+{
+	struct sclexer_tok ident;
+	darr(char *) members;
+
+	nextor err_eof;
+	expect(TOK_TAG);
+
+	darr_init(&members);
+
+	nextorend;
+	expect(TOK_LBRACE);
+	fputs("struct ", stdout);
+	putname(name);
+	puts(" {");
+	putindent(indent + 1);
+	puts("union {");
+
+	while (parse_struct_member(indent + 1, &ident)) {
+		darr_expand(&members);
+		darr_last(&members) = strndup(ident.str, ident.len);
+	}
+
+	putindent(indent + 1);
+	puts("} u;");
+
+	putindent(indent + 1);
+	puts("enum {");
+	for (int i = 0; i < members.n; i++) {
+		putindent(indent + 2);
+		for (char *c = name; *c; c++)
+			putc(toupper(*c), stdout);
+		putc('_', stdout);
+		for (char *c = members.e[i]; *c; c++)
+			putc(toupper(*c), stdout);
+		if (i == members.n - 1)
+			putc('\n', stdout);
+		else
+			puts(",");
+	}
+	putindent(indent + 1);
+	puts("} k;");
+
+	putindent(indent);
+	puts("};");
+	return 1;
 }
 
 int
@@ -164,11 +218,17 @@ parse_struct_member(int indent, struct sclexer_tok *ident)
 		putc(' ', stdout);
 		free(tmp);
 		goto putname;
+	case TOK_IDENT_:
+		fputs("struct zk_ident *", stdout);
+		goto putname;
 	case TOK_STRUCT:
 		parse_struct(indent + 1, name, NULL);
 		break;
+	case TOK_TOKEN:
+		fputs("enum TOKEN ", stdout);
+		goto putname;
 	case TOK_U64:
-		fputs("uin64_t ", stdout);
+		fputs("uint64_t ", stdout);
 		goto putname;
 	default:
 		unexpected;
@@ -180,52 +240,6 @@ parse_struct_member(int indent, struct sclexer_tok *ident)
 
 	free(name);
 
-	return 1;
-}
-
-int
-parse_tagenum(int indent, char *name)
-{
-	struct sclexer_tok ident;
-	darr(char *) members;
-
-	darr_init(&members);
-
-	nextorend;
-	expect(TOK_LBRACE);
-	fputs("struct ", stdout);
-	putname(name);
-	puts(" {");
-	putindent(indent + 1);
-	puts("union {");
-
-	while (parse_struct_member(indent + 1, &ident)) {
-		darr_expand(&members);
-		darr_last(&members) = strndup(ident.str, ident.len);
-	}
-
-	putindent(indent + 1);
-	puts("} u;");
-
-	putindent(indent + 1);
-	puts("enum {");
-	for (int i = 0; i < members.n; i++) {
-		putindent(indent + 2);
-		for (char *c = name; *c; c++)
-			putc(toupper(*c), stdout);
-		putc('_', stdout);
-		for (char *c = members.e[i]; *c; c++)
-			putc(toupper(*c), stdout);
-		if (i == members.n - 1)
-			putc('\n', stdout);
-		else
-			puts(",");
-	}
-	putindent(indent + 1);
-	puts("} k;");
-
-	putindent(indent);
-	puts("};");
 	return 1;
 }
 
@@ -256,6 +270,7 @@ main()
 
 	lexer.tokens = tokens;
 	lexer.comments = comments;
+	lexer.eol_tok = -1;
 	lexer.ident_tok = TOK_IDENT;
 	lexer.int_tok = -1;
 	sclexer_init(&lexer, src);

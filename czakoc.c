@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "czakoc.h"
 #include "err.h"
+#include "parser.h"
 
 #define GETARG_IMPL
 #include "getarg.h"
