@@ -1,0 +1,235 @@
+#ifndef CZAKOC_H
+#define CZAKOC_H
+#include <stdint.h>
+#include "darr.h"
+#include "macros.h"
+#include "str.h"
+
+enum TOKEN {
+	TOK_ELSE,
+	TOK_FN,
+	TOK_FOR,
+	TOK_IF,
+	TOK_IMPL,
+	TOK_LET,
+	TOK_MUT,
+	TOK_PUB,
+	TOK_RETURN,
+	TOK_STRUCT,
+	TOK_TRAIT,
+	TOK_TYPE,
+
+	TOK_U8, TOK_U16, TOK_U32, TOK_U64,
+	TOK_I8, TOK_I16, TOK_I32, TOK_I64,
+
+	TOK_EQ,
+	TOK_GE,
+	TOK_GT,
+	TOK_LE,
+	TOK_LT,
+	TOK_MINUS,
+	TOK_PLUS,
+	TOK_SLASH,
+	TOK_STAR,
+
+	TOK_AMP,
+	TOK_COMMA,
+	TOK_DOT,
+
+	TOK_ASSIGN,
+	TOK_ADD_ASSIGN,
+	TOK_DIV_ASSIGN,
+	TOK_MUL_ASSIGN,
+	TOK_SUB_ASSIGN,
+
+	TOK_LBRACE,
+	TOK_RBRACE,
+	TOK_LBRACKET,
+	TOK_RBRACKET,
+	TOK_LPAREN,
+	TOK_RPAREN,
+
+	TOK_EOL,
+	TOK_IDENT,
+	TOK_INT,
+
+	TOK_ERR
+};
+
+enum OPERATOR {
+	ZK_ADD,
+	ZK_DIV,
+	ZK_MUL,
+	ZK_SUB,
+
+	ZK_EQ,
+	ZK_GE,
+	ZK_GT,
+	ZK_LE,
+	ZK_LT,
+
+	ZK_ASSIGN,
+	ZK_ADD_ASSIGN,
+	ZK_DIV_ASSIGN,
+	ZK_MUL_ASSIGN,
+	ZK_SUB_ASSIGN,
+
+	ZK_DOT,
+
+	ZK_OP_COUNT
+};
+
+#define IS_ASSIGN_EXPR(BINARY_OP) RANGE((BINARY_OP), ZK_ASSIGN, ZK_SUB_ASSIGN)
+
+typedef darr(struct zk_expr*) zk_exprs_t;
+typedef darr(struct zk_ident*) zk_idents_t;
+typedef darr(struct zk_val*) zk_vals_t;
+
+struct zk_arr_type {
+	struct zk_type *type;
+	unsigned int siz;
+};
+
+struct zk_scope {
+	struct zk_type *expect_type;
+	struct zk_scope *parent;
+	zk_idents_t idents;
+};
+
+struct zk_struct_type {
+	struct zk_ident *id;
+	zk_idents_t members;
+};
+
+struct zk_type {
+	enum ZK_BUILTIN_TYPE {
+		ZK_U8, ZK_U16, ZK_U32, ZK_U64,
+		ZK_I8, ZK_I16, ZK_I32, ZK_I64,
+
+		ZK_ARR, ZK_PTR, ZK_STRUCT
+	} builtin;
+
+	union {
+		struct zk_arr_type arr_type;
+		struct zk_struct_type struct_type;
+		struct zk_type *type;
+	} u;
+
+	unsigned int mutable:1;
+};
+
+struct zk_address_of_expr {
+	struct zk_ident *id;
+	struct zk_type type;
+};
+
+struct zk_binary_expr {
+	struct zk_val *lhs, *rhs;
+	enum OPERATOR op;
+	struct zk_type *type;
+};
+
+struct zk_fn_call {
+	struct zk_ident *fn;
+	zk_exprs_t args;
+};
+
+struct zk_if_expr {
+	struct zk_expr *cond;
+	zk_exprs_t then;
+	struct zk_type *type;
+};
+
+struct zk_expr {
+	enum {
+		ZK_ADDRESS_OF_EXPR,
+		ZK_BINARY_EXPR,
+		ZK_FN_CALL_EXPR,
+		ZK_IF_EXPR
+	} k;
+	union {
+		struct zk_address_of_expr address_of;
+		struct zk_binary_expr binary;
+		struct zk_fn_call fn_call;
+		struct zk_if_expr if_expr;
+	} u;
+};
+
+struct zk_fn {
+	zk_idents_t args;
+};
+
+struct zk_trait {
+	struct zk_scope scope;
+};
+
+struct zk_ident {
+	char *name;
+	struct zk_type type;
+	unsigned int pub:1;
+
+	enum ZK_IDENT_KIND {
+		ZK_FN,
+		ZK_TRAIT,
+		ZK_TYPE_IDENT,
+		ZK_IDENT
+	} k;
+	union {
+		struct zk_fn fn;
+		struct zk_trait trait;
+	} u;
+};
+
+struct zk_mod {
+	struct zk_scope scope;
+};
+
+typedef darr(struct zk_brace_init_member) zk_brace_init_members_t;
+struct zk_brace_init {
+	zk_brace_init_members_t members;
+	struct zk_type *type;
+};
+
+struct zk_brace_init_member {
+	enum {
+		ZK_BRACE_INIT_BY_IDX,
+		ZK_BRACE_INIT_BY_IDENT
+	} k;
+	union {
+		unsigned int i;
+		char *ident;
+	} idx;
+	struct zk_expr *val;
+};
+
+/* WTF */
+struct zk_int_val {
+	int64_t i;
+	struct zk_type type;
+};
+
+struct zk_val {
+	enum {
+		ZK_BRACE_INIT_VAL,
+		ZK_EXPR_VAL,
+		ZK_IDENT_VAL,
+		ZK_INT_VAL,
+
+		ZK_UNANALYZED_IDENT_VAL
+	} k;
+	union {
+		struct zk_brace_init brace_init;
+		struct zk_expr *expr;
+		struct zk_int_val i; /* shit */
+		struct zk_ident *id;
+		char *unanalyzed_id;
+	} u;
+};
+
+#define IS_INTEGER(BUILTIN_TYPE) (RANGE((BUILTIN_TYPE), ZK_U8, ZK_I64))
+#define IS_SIGNED_INTEGER(BUILTIN_TYPE) (RANGE((BUILTIN_TYPE), ZK_I8, ZK_I64))
+
+struct zk_ident *find_ident(struct zk_scope *scope, const struct str *name);
+struct zk_ident *find_struct_member(struct zk_struct_type *type, const struct str *name);
+
+#endif

@@ -1,0 +1,20 @@
+A type = struct {
+	a i32
+}
+
+TraitA trait = {
+	f fn(*self) i32
+}
+
+impl TraitA for A {
+	f fn(self *A) i32 = {
+		return self.a
+	}
+}
+
+main fn() = {
+	let a A = {.a = 1}
+	return a.f()
+	-- return A.f(&a)
+	-- a.a
+}

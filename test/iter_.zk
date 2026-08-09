@@ -1,0 +1,8 @@
+DynArr[T] type = struct {
+	cap usize
+	items [T]
+	len usize
+}
+
+arr DynArr[i32]
+arr

@@ -1,0 +1,7 @@
+f fn() i32 = {
+	return 2
+}
+
+pub x fn() i32 = {
+	return f()
+}

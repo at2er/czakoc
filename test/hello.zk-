@@ -1,0 +1,37 @@
+--fib fn(n i32) i32 = {
+--	if n <= 1 { return n }
+--	return (fib n - 1) + (fib n - 2)
+--}
+
+A type = struct {
+	a i32
+	b i32
+}
+
+Ret trait = {
+	ret fn() i8
+}
+
+impl Ret for A {
+	ret fn() i8 = {
+		return 1
+	}
+}
+
+pub main fn(argc i32) i32 = {
+	let a i32 = 12
+	let b mut *mut i32 = &a
+
+	a = 2
+
+	if a <= 1 {
+		-- error
+		if b == 1 {
+			return 1
+		}
+		return a
+	} else {
+		return 12
+	}
+	return a
+}

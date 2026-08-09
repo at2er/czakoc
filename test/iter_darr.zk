@@ -1,0 +1,44 @@
+iter module = import iter
+stdio module = import std/io
+
+Array[T] type = struct {
+	capacity usize
+	items [T]
+	length usize
+}
+
+impl Sequence for Array[T] {
+	IteratorType type = ArrayIterator
+
+	iter fn(self) IteratorType = {
+		return {  }
+	}
+}
+
+ArrayIterator[T] type = struct {
+	array Array[T]*
+	index usize
+}
+
+impl Iterator for ArrayIterator[T] {
+	ItemType type = T
+
+	has_next fn(self) bool = { return self.index < self.array }
+	next fn(self) ItemType*? = {
+		if not has_next(self) {
+			return null
+		}
+
+		self.index++;
+		return self.array.*[self.index - 1]
+	}
+}
+
+main fn() = {
+	int_arr Array[i32]
+	int_arr.append(123)
+	int_arr.append(456)
+	int_arr_iter := int_arr.iter()
+	for i: in int_arr_iter {
+	}
+}

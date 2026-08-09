@@ -1,0 +1,70 @@
+iter module = import iter
+stdio module = import std/io
+
+use iter
+
+List[T] type = struct {
+	data T
+	next List[T]*
+	prev List[T]*
+}
+
+impl DynSequence for List[T] {
+	ItemType type = List[T]
+
+	append fn(self *mut List[T], item *mut ItemType) bool = {
+		self.next = item
+		item.prev = self
+		return true
+	}
+
+	insert fn(self *mut List[T], after *mut ItemType, item *mut ItemType) bool = {
+		after.next = item
+		item.prev = after
+		if after == self.prev {
+			self.prev = item
+		} else if after != self.next {
+			return false;
+		}
+		return true;
+	}
+}
+
+impl Sequence for List[T] {
+	IteratorType type = ListIterator[T]
+
+	iter fn(self) mut IteratorType = {
+		return { current = self }
+	}
+}
+
+ListIterator[T] type = struct {
+	current *List[T]
+}
+
+impl Iterator for ListIterator[T] {
+	ItemType type = T
+
+	has_next fn(self) bool = { return self.current.next }
+	next fn(self) *?ItemType = {
+		if not has_next(self) {
+			return null
+		}
+
+		cur ItemType* = &self.current.data
+		self.current = self.current.next
+		return cur;
+	}
+}
+
+main fn() = {
+	int_list List[i32]
+	int_list.append(123)
+	int_list.append(456)
+	int_list_iter := int_list.iter()
+	for i: in int_list_iter.next() {
+		stdio.printf("%", i.data)
+	}
+	-- 456 123
+	return 0
+}

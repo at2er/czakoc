@@ -1,0 +1,66 @@
+iter module = import iter
+stdio module = import std/io
+
+use iter
+
+List type = struct {
+	next List*
+	prev List*
+}
+
+impl DynSequence for List {
+	ItemType type = List*
+
+	append fn(self, item ItemType) ItemType = {
+		self.next = item
+		item.prev = self
+	}
+
+	insert fn(self, after ItemType, item ItemType) ItemType = {
+		after.next = item
+		item.prev = after
+		if after == self.prev {
+			self.prev = item
+		} else if after != self.next {
+			panic()
+		}
+	}
+}
+
+impl Sequence for List {
+	IteratorType type = ListIterator
+
+	iter fn(self List*) IteratorType = {
+		return { current = self }
+	}
+}
+
+ListIterator type = struct {
+	current List*
+}
+
+impl Iterator for ListIterator {
+	ItemType type = List*
+
+	has_next fn(self ListIterator*) bool = { return self.current }
+	next fn(self ListIterator*) ItemType? = {
+		if not has_next(self) {
+			return null
+		}
+
+		cur List* = self.current
+		self.current = cur.next
+		return cur
+	}
+}
+
+main fn() = {
+	int_list I32List
+	int_list.append(123)
+	int_list.append(456)
+	int_list_iter := int_list.iter()
+	for i: in int_list_iter {
+		stdio.printf("%", i)
+	}
+	-- 456 123
+}

@@ -14,7 +14,7 @@ OBJ_DEPS = $(addprefix $(BUILD_DIR)/,$(SRC:.c=.d))
 
 CC_CMD = $(CC) $(CFLAGS) -g3 -c -o $@ $<
 
-all: gen/ast.h $(TARGET)
+all: $(TARGET)
 
 $(OBJ_DIRS):
 	mkdir -p $@
@@ -31,29 +31,16 @@ clean:
 	@echo "  CLEAN"
 	@rm -f $(OBJ) $(TARGET)
 
-clean-all: clean clean-gen
-clean-gen:
-	rm -f gen/ast.h
-
 install:
 	cp -f $(TARGET) $(TARGET_DIR)/$(TARGET)
 
 uninstall:
 	rm -f $(TARGET_DIR)/$(TARGET)
 
-gen/%: gen/%.c
-	@echo "  TOOL  " $@
-	@$(CC) $(CFLAGS) -g3 -MMD -o $@ $<
-
-gen/ast.h: gen/ast gen/ast.def
-	@echo "  GEN   " $@
-	@gen/ast < gen/ast.def > $@
-
 %.h:
 	@:
 ifeq (,$(filter clean,$(MAKECMDGOALS)))
 -include $(OBJ_DEPS)
--include gen/ast.d
 endif
 
-.PHONY: all clean clean-all clean-gen install uninstall
+.PHONY: all clean install uninstall

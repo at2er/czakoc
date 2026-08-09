@@ -1,0 +1,19 @@
+DynSequence trait = {
+	ItemType type
+
+	append fn(self, item *mut ItemType) *ItemType
+	insert fn(self, after *mut ItemType, item ItemType) *ItemType
+}
+
+Iterator trait = {
+	ItemType type
+
+	has_next fn(self) bool
+	next fn(self) ItemType*?
+}
+
+Sequence trait = {
+	IteratorType type
+
+	iter fn(self) IteratorType
+}

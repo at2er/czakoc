@@ -1,0 +1,9 @@
+mod_a module = import a
+mod_b module = import b
+
+--mod_c module = import c
+use c
+
+pub main fn() i32 = {
+	return mod_a.x() + mod_b.x() + x()
+}

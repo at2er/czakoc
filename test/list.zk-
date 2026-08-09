@@ -1,0 +1,44 @@
+Iterator trait = {
+	ItemType type
+	IteratorType type
+
+	next fn(self IteratorType) ItemType?
+}
+
+Sequence trait = {
+	IteratorType type
+
+	iter fn(self) IteratorType
+}
+
+List trait = {
+	next List*
+	prev List*
+}
+
+ListIterator type = struct {
+	current List*
+}
+
+impl Iterator for ListIterator {
+	ItemType type = List*
+	IteratorType type = typeof(self)
+
+	next fn(self IteratorType) ItemType? = {
+		List *cur = self.current
+		self.current = cur.next
+		return cur
+	}
+}
+
+I32List type = struct {
+	i i32
+}
+
+impl List for I32List
+
+main fn() = {
+	int_list I32List
+	int_list.append(123)
+	int_list.append(456)
+}

@@ -1,0 +1,27 @@
+main fn() i32 = {
+	a i32 = 123
+	a = 456
+
+	--mut(ptr(i32))
+	ptr0 i32* mut
+
+	--ptr(mut(i32))
+
+	-- type = builtin / pointer
+	-- pointer = mutable "*"
+	-- mutable = builtin "mut"
+	-- builtin = "i32"
+	ptr2 i32 mut*
+
+	-- mutable-identifier-define = "mut" identifier-define
+	-- identifier-define = identifier type
+	-- type = builtin / pointer
+	-- builtin = i32
+	-- pointer = "*" ["mut"] type
+	mut b *mut i32 = &a
+
+	mut a i32 = 123
+
+	--mut(ptr(mut(i32)))
+	ptr1 i32 mut* mut
+}
