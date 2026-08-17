@@ -39,12 +39,16 @@ struct parser {
 	                 scope;
 
 	struct codegen codegen;
+
+	char *name_prefix;
+
+	enum { IN_TOP, IN_TRAIT_DEF, IN_IMPL_DEF } where;
 };
 
 static struct zk_scope *enter_scope(struct parser *p);
 static void exit_scope(struct parser *p);
 static enum OPERATOR get_binary_op(enum TOKEN tok);
-static void merge_binary_expr(struct zk_expr *parent, struct zk_expr *child);
+static struct zk_expr *merge_binary_expr(struct zk_expr *parent, struct zk_expr *child);
 static struct zk_expr *parse_address_of_expr(struct parser *p);
 static struct zk_type *parse_arr_type(struct parser *p, struct zk_type *typ);
 static zk_block_t *parse_block(struct parser *p, zk_block_t *blk);
@@ -58,7 +62,7 @@ static struct zk_brace_init_member *parse_brace_init_member_idx(struct parser *p
 		struct zk_brace_init_member *member,
 		unsigned int idx);
 static struct zk_stmt *parse_expr_stmt(struct parser *p);
-static struct zk_expr *parse_fn_call(struct parser *p, struct zk_ident *id);
+static struct zk_expr *parse_fn_call(struct parser *p);
 static struct zk_top_stmt *parse_fn_def(struct parser *p, struct zk_ident *id);
 static int parse_fn_def_args(struct parser *p, struct zk_fn *fn);
 static struct zk_stmt *parse_ident_def_stmt(struct parser *p);
@@ -86,6 +90,7 @@ static const char *tokens[] = {
 	[TOK_MUT] = "mut",
 	[TOK_PUB] = "pub",
 	[TOK_RETURN] = "return",
+	[TOK_SELF] = "Self",
 	[TOK_STRUCT] = "struct",
 	[TOK_TRAIT] = "trait",
 	[TOK_TYPE] = "type",
@@ -186,7 +191,7 @@ get_binary_op(enum TOKEN tok)
 	}
 }
 
-void
+struct zk_expr *
 merge_binary_expr(struct zk_expr *parent, struct zk_expr *child)
 {
 	struct zk_binary_expr *p = &parent->u.binary, *c = &child->u.binary;
@@ -195,10 +200,12 @@ merge_binary_expr(struct zk_expr *parent, struct zk_expr *child)
 		p->rhs = ecalloc(1, sizeof(*p->rhs));
 		p->rhs->k = ZK_EXPR_VAL;
 		p->rhs->u.expr = child;
+		return parent;
 	} else {
 		c->lhs = ecalloc(1, sizeof(*c->lhs));
 		c->lhs->k = ZK_EXPR_VAL;
 		c->lhs->u.expr = parent;
+		return child;
 	}
 }
 
@@ -307,11 +314,13 @@ parse_binary_expr(struct parser *p)
 			child = &_child->u.binary;
 			child->op = op;
 			child->rhs = v;
-			merge_binary_expr(_parent, _child);
+			_parent = merge_binary_expr(_parent, _child);
+			parent = &_parent->u.binary;
 		} else {
 			parent->op = op;
 			parent->rhs = v;
 		}
+
 		next(p);
 	}
 	peek(p);
@@ -397,20 +406,28 @@ parse_expr_stmt(struct parser *p)
 }
 
 struct zk_expr *
-parse_fn_call(struct parser *p, struct zk_ident *id)
+parse_fn_call(struct parser *p)
 {
 	struct zk_fn_call *call;
 	struct zk_expr *expr = ecalloc(1, sizeof(*expr)), *e;
+
 	expr->k = ZK_FN_CALL_EXPR;
 	call = &expr->u.fn_call;
-	call->fn = id;
+
+	next(p);
+	expect(p, TOK_LPAREN);
 
 	darr_init(&call->args);
-	for (int i = 0; i < id->u.fn.args.n; i++) {
+	do {
+		next(p);
+		if (p->tok.type == TOK_RPAREN)
+			break;
+		peek(p);
 		if (!(e = parse_binary_expr(p)))
 			return NULL;
 		darr_append(&call->args, e);
-	}
+	} while (p->tok.type == TOK_COMMA);
+	expect(p, TOK_RPAREN);
 
 	return expr;
 }
@@ -455,14 +472,14 @@ parse_fn_def_args(struct parser *p, struct zk_fn *fn)
 	struct zk_ident *id;
 
 	darr_init(&fn->args);
-	next(p);
 	do {
+		next(p);
 		if (p->tok.type == TOK_RPAREN)
 			break;
 		expect(p, TOK_IDENT);
 		id = ecalloc(1, sizeof(*id));
 		id->k = ZK_IDENT;
-		id->name = duptok(p);
+		id->name = id->realname = duptok(p);
 		if (!parse_type(p, &id->type)) {
 			free(id->name);
 			free(id);
@@ -483,6 +500,7 @@ struct zk_stmt *
 parse_ident_def_stmt(struct parser *p)
 {
 	struct zk_ident *id;
+	struct semantics_ctx sema = {0};
 	struct zk_stmt *stmt = ecalloc(1, sizeof(*stmt));
 	struct zk_type *t;
 
@@ -495,7 +513,7 @@ parse_ident_def_stmt(struct parser *p)
 
 	id = ecalloc(1, sizeof(*id));
 	id->k = ZK_IDENT;
-	id->name = duptok(p);
+	id->name = id->realname = duptok(p);
 	darr_append(&p->cscope->idents, id);
 	parse_type(p, &id->type);
 
@@ -504,7 +522,9 @@ parse_ident_def_stmt(struct parser *p)
 	
 	stmt->u.ident_def.id = id;
 	stmt->u.ident_def.val = parse_binary_expr(p);
-	t = analyze_expr_type(&id->type, stmt->u.ident_def.val);
+	sema.expect = &id->type;
+	sema.scope = p->cscope;
+	t = analyze_expr_type(&sema, stmt->u.ident_def.val);
 	if (!t)
 		throw_semantics_err(p, -1);
 
@@ -515,38 +535,34 @@ struct zk_val *
 parse_ident_val(struct parser *p, struct zk_val *v)
 {
 	struct zk_expr *expr;
+	struct zk_ident *id;
 
-	v->k = ZK_UNANALYZED_IDENT_VAL;
 	next(p);
-	if (p->tok.type != TOK_LPAREN) {
-		peek(p);
-		return v;
+	id = find_ident(p->cscope, &STRTOK(&p->tok));
+	if (id) {
+		v->k = ZK_IDENT_VAL;
+		v->u.id = id;
+	} else {
+		v->k = ZK_UNANALYZED_IDENT_VAL;
+		v->u.unanalyzed_id = duptok(p);
 	}
+
+	next(p);
+	peek(p);
+	if (p->tok.type != TOK_LPAREN)
+		return v;
 	expr = parse_fn_call(p);
 	if (!expr)
 		return NULL;
+
+	if (id) {
+		expr->u.fn_call.fn = id;
+	} else {
+		expr->u.fn_call.unanalyzed_id = v->u.unanalyzed_id;
+	}
+
 	v->k = ZK_EXPR_VAL;
 	v->u.expr = expr;
-/*
-	v->u.id = find_ident(p->cscope, &STRTOK(&p->tok));
-	if (!v->u.id)
-		throwf(p, "identifier '%.*s' not found", p->tok.len, p->tok.str);
-
-	switch (v->u.id->k) {
-	case ZK_FN:
-		expr = parse_fn_call(p, v->u.id);
-		if (!expr)
-			return NULL;
-		v->k = ZK_EXPR_VAL;
-		v->u.expr = expr;
-		break;
-	case ZK_IDENT:
-		break;
-	default:
-		throwf(p, "unexpected identifier '%.*s'", p->tok.len, p->tok.str);
-		break;
-	}
-*/
 	return v;
 }
 
@@ -572,7 +588,8 @@ struct zk_top_stmt *
 parse_impl_stmt(struct parser *p)
 {
 	struct zk_top_stmt *stmt, *top_stmt = ecalloc(1, sizeof(*top_stmt));
-	struct zk_ident *struct_id, *trait_id;
+	struct zk_ident *struct_id, *trait_id, *id;
+	struct zk_struct_type *struct_type;
 	struct zk_impl_stmt *impl = &top_stmt->u.impl_stmt;
 
 	top_stmt->k = ZK_IMPL_STMT;
@@ -589,6 +606,21 @@ parse_impl_stmt(struct parser *p)
 	struct_id = find_ident(p->cscope, &STRTOK(&p->tok));
 	if (!struct_id)
 		throwf(p, "struct '%.*s' not found", p->tok.len, p->tok.str);
+	struct_type = &struct_id->type.u.struct_type;
+	if (struct_type->generics) {
+		enter_scope(p);
+		next(p);
+		expect(p, TOK_LBRACKET);
+		next(p);
+		id = ecalloc(1, sizeof(*id));
+		id->name = id->realname = duptok(p);
+		id->type.builtin = ZK_GENERIC_TYPE;
+		id->k = ZK_TYPE_IDENT;
+		impl->generic_id = id;
+		darr_append(&p->cscope->idents, id);
+		next(p);
+		expect(p, TOK_RBRACKET);
+	}
 	next(p);
 	expect(p, TOK_LBRACE);
 	next(p);
@@ -600,6 +632,8 @@ parse_impl_stmt(struct parser *p)
 	impl->scope.parent = p->cscope;
 	p->cscope = &impl->scope;
 
+	p->name_prefix = impl->struct_id->realname;
+
 	while (p->tok.type != TOK_RBRACE) {
 		stmt = NULL;
 		switch (p->tok.type) {
@@ -608,6 +642,7 @@ parse_impl_stmt(struct parser *p)
 		case TOK_IDENT:
 			peek(p);
 			stmt = parse_top_ident(p, 0);
+			darr_append(&struct_type->members, darr_last(&p->cscope->idents));
 			break;
 		}
 		if (stmt)
@@ -615,12 +650,18 @@ parse_impl_stmt(struct parser *p)
 		next(p);
 	}
 
-	if (check_trait_impl(impl))
+	if (analyze_trait_impl(impl))
 		throw_semantics_err(p, -1);
 
 	impl->struct_id = struct_id;
 	impl->trait_id = trait_id;
 	p->cscope = p->cscope->parent;
+
+	p->name_prefix = NULL;
+
+	if (struct_type->generics)
+		exit_scope(p);
+
 	return top_stmt;
 }
 
@@ -629,11 +670,14 @@ parse_return_stmt(struct parser *p)
 {
 	struct zk_stmt *stmt = ecalloc(1, sizeof(*stmt));
 	struct zk_type *type;
+	struct semantics_ctx sema = {0};
 
 	stmt->k = ZK_RETURN_STMT;
 	stmt->u.return_stmt = parse_binary_expr(p);
 
-	type = analyze_expr_type(p->cscope->expect_type, stmt->u.return_stmt);
+	sema.expect = p->cscope->expect_type;
+	sema.scope = p->cscope;
+	type = analyze_expr_type(&sema, stmt->u.return_stmt);
 	if (!type)
 		throw_semantics_err(p, -1);
 	if (!stmt->u.return_stmt) {
@@ -650,6 +694,20 @@ parse_struct_type(struct parser *p, struct zk_type *typ)
 	struct zk_struct_type *st = &typ->u.struct_type;
 
 	next(p);
+	darr_init(&st->generic_instances);
+	if (p->tok.type == TOK_LBRACKET) {
+		enter_scope(p);
+		next(p);
+		id = ecalloc(1, sizeof(*id));
+		id->name = id->realname = duptok(p);
+		id->type.builtin = ZK_GENERIC_TYPE;
+		id->k = ZK_TYPE_IDENT;
+		st->generics = 1;
+		darr_append(&p->cscope->idents, id);
+		next(p);
+		expect(p, TOK_RBRACKET);
+		next(p);
+	}
 	expect(p, TOK_LBRACE);
 	next(p);
 	darr_init(&st->members);
@@ -659,13 +717,17 @@ parse_struct_type(struct parser *p, struct zk_type *typ)
 			break;;
 		case TOK_IDENT:
 			id = ecalloc(1, sizeof(*id));
-			id->name = duptok(p);
+			id->k = ZK_IDENT;
+			id->name = id->realname = duptok(p);
 			parse_type(p, &id->type);
 			darr_append(&st->members, id);
 			break;
 		}
 		next(p);
 	}
+
+	if (st->generic_instances.n)
+		exit_scope(p);
 
 	return st;
 }
@@ -674,10 +736,13 @@ struct zk_top_stmt *
 parse_top_ident(struct parser *p, int pub)
 {
 	struct zk_ident *id = ecalloc(1, sizeof(*id));
+	struct zk_top_stmt *stmt;
 
 	next(p);
-	id->name = duptok(p);
+	id->name = id->realname = duptok(p);
 	id->pub = pub;
+	if (p->name_prefix)
+		id->realname = codegen_get_realname(p->name_prefix, id->name);
 	if (pub)
 		darr_append(&p->cscope->parent->idents, id);
 	else
@@ -686,17 +751,20 @@ parse_top_ident(struct parser *p, int pub)
 	next(p);
 	switch (p->tok.type) {
 	case TOK_TRAIT:
-		return parse_trait_def(p, id);
+		stmt = parse_trait_def(p, id);
+		break;
 	case TOK_TYPE:
-		return parse_type_def(p, id);
+		stmt = parse_type_def(p, id);
+		break;
 	case TOK_FN:
-		return parse_fn_def(p, id);
+		stmt = parse_fn_def(p, id);
+		break;
 	default:
 		unexpected(&p->tok);
 		break;
 	}
 
-	return NULL;
+	return stmt;
 }
 
 struct zk_top_stmt *
@@ -704,6 +772,8 @@ parse_trait_def(struct parser *p, struct zk_ident *id)
 {
 	struct zk_top_stmt *stmt, *top_stmt = ecalloc(1, sizeof(*top_stmt));
 	struct zk_trait *trait;
+	if (p->where == IN_TRAIT_DEF)
+		throw(p, "double trait define!");
 	next(p);
 	expect(p, TOK_ASSIGN);
 	next(p);
@@ -719,6 +789,7 @@ parse_trait_def(struct parser *p, struct zk_ident *id)
 
 	trait->scope.parent = p->cscope;
 	p->cscope = &trait->scope;
+	p->where = IN_TRAIT_DEF;
 	while (p->tok.type != TOK_RBRACE) {
 		switch (p->tok.type) {
 		case TOK_IDENT:
@@ -732,6 +803,7 @@ parse_trait_def(struct parser *p, struct zk_ident *id)
 		next(p);
 	}
 	p->cscope = p->cscope->parent;
+	p->where = IN_TOP;
 	return top_stmt;
 }
 
@@ -749,6 +821,9 @@ again:
 		builtin = ZK_PTR;
 		typ->u.type = ecalloc(1, sizeof(*typ->u.type));
 		parse_type(p, typ->u.type);
+		break;
+	case TOK_SELF:
+		builtin = ZK_SELF_TYPE;
 		break;
 	case TOK_STRUCT:
 		builtin = ZK_STRUCT;
@@ -785,13 +860,22 @@ parse_type_def(struct parser *p, struct zk_ident *id)
 	id->k = ZK_TYPE_IDENT;
 
 	next(p);
-	expect(p, TOK_ASSIGN);
+	if (p->tok.type != TOK_ASSIGN && p->where == IN_TRAIT_DEF) {
+		id->type.builtin = ZK_ANY_TYPE;
+		peek(p);
+		return stmt;
+	} else {
+		expect(p, TOK_ASSIGN);
+	}
 	parse_type(p, &id->type);
 	switch (id->type.builtin) {
 	case ZK_STRUCT:
 		stmt->k = ZK_STRUCT_DEF;
 		stmt->u.struct_def = id;
 		id->type.u.struct_type.id = id;
+		break;
+	case ZK_TYPE_REF:
+		stmt->k = ZK_TYPE_ALIAS_STMT;
 		break;
 	default:
 		throw(p, "unsupport");
@@ -804,6 +888,11 @@ struct zk_type *
 parse_type_from_ident(struct parser *p, struct zk_type *typ)
 {
 	struct zk_ident *id;
+	struct zk_generic_instance_type *instance;
+	struct zk_struct_type *struct_type;
+	struct semantics_ctx sema = {0};
+	struct zk_type t;
+
 	next(p);
 	expect(p, TOK_IDENT);
 	id = find_ident(p->cscope, &STRTOK(&p->tok));
@@ -811,7 +900,52 @@ parse_type_from_ident(struct parser *p, struct zk_type *typ)
 		throwf(p, "type identifier '%.*s' not found", p->tok.len, p->tok.str);
 	if (id->k != ZK_TYPE_IDENT)
 		throwf(p, "identifier '%.*s' is not a type identifier", p->tok.len, p->tok.str);
-	*typ = id->type;
+
+	typ->builtin = ZK_TYPE_REF;
+	typ->u.type = &id->type;
+	if (id->type.builtin != ZK_STRUCT)
+		return typ;
+
+	struct_type = &id->type.u.struct_type;
+	if (!struct_type->generics)
+		return typ;
+
+	next(p);
+	expect(p, TOK_LBRACKET);
+	parse_type(p, &t);
+	next(p);
+	expect(p, TOK_RBRACKET);
+
+	if (deref_type(&t)->builtin == ZK_GENERIC_TYPE) {
+		typ->builtin = ZK_GENERIC_INSTANCE_TYPE;
+		instance = ecalloc(1, sizeof(*instance));
+		instance->instance = typ->u.type;
+		instance->t = ecalloc(1, sizeof(*instance->t));
+		instance->t->builtin = ZK_TYPE_REF;
+		instance->t->u.type = deref_type(&t);
+		typ->u.generic_instance_type = instance;
+		return typ;
+	}
+
+	for (int i = 0; i < struct_type->generic_instances.n; i++) {
+		sema.expect = struct_type->generic_instances.e[i]->t;
+		if (check_type_full_equal(&sema, &t) == 0) {
+			typ->builtin = ZK_TYPE_REF;
+			typ->u.type = struct_type->generic_instances.e[i]->instance;
+			return typ;
+		}
+	}
+
+	instance = ecalloc(1, sizeof(*instance));
+	instance->t = dup_type(&t);
+	instance->instance = dup_type(&id->type);
+	instance->instance->u.struct_type.cur_instance = instance->t;
+	darr_append(&struct_type->generic_instances, instance);
+	
+	monomorphize_struct(&instance->instance->u.struct_type, instance->t);
+
+	typ->builtin = ZK_GENERIC_INSTANCE_TYPE;
+	typ->u.generic_instance_type = instance;
 	return typ;
 }
 
@@ -836,15 +970,16 @@ parse_val(struct parser *p)
 		expect(p, TOK_RPAREN);
 		break;
 	case TOK_IDENT:
+		peek(p);
 		return parse_ident_val(p, v);
 	case TOK_INT:
 		v->k = ZK_INT_VAL;
 		if (p->tok.str[0] == '-') {
 			v->u.i.i = utilsh_conv_a2i(p->tok.str, p->tok.len);
-			v->u.i.type.builtin = analyze_uint_type(v->u.i.i);
+			v->u.i.type.builtin = analyze_cint_type(v->u.i.i);
 		} else {
 			v->u.i.i = utilsh_conv_a2ui(p->tok.str, p->tok.len);
-			v->u.i.type.builtin = analyze_uint_type(v->u.i.i);
+			v->u.i.type.builtin = analyze_cint_type(v->u.i.i);
 		}
 		break;
 	default:

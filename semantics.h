@@ -9,30 +9,38 @@ enum {
 	SEMANTICS_INCOMPATIBLE_TYPE,
 	SEMANTICS_INCOMPLETE_TRAIT_IMPL,
 	SEMANTICS_INIT_STRUCT_WITH_INT_IDX,
+	SEMANTICS_LHS_CANT_BE_NULL_IN_DOT_EXPR,
 	SEMANTICS_STRUCT_MEMBER_NOT_FOUND
+};
+
+struct semantics_ctx {
+	struct zk_type *expect;
+	struct zk_scope *scope;
 };
 
 extern int semantic_error;
 
-struct zk_type *analyze_arr_brace_init_type(struct zk_type *expect,
+struct zk_type *analyze_arr_brace_init_type(struct semantics_ctx *ctx,
 		struct zk_brace_init *brace_init);
-struct zk_type *analyze_binary_expr_type(struct zk_type *expect,
-		struct zk_binary_expr *expr);
-struct zk_type *analyze_brace_init_type(struct zk_type *expect,
-		struct zk_brace_init *brace_init);
-struct zk_type *analyze_expr_type(struct zk_type *expect,
+struct zk_type *analyze_binary_expr_type(struct semantics_ctx *ctx,
 		struct zk_expr *expr);
-struct zk_type *analyze_struct_brace_init_type(struct zk_type *expect,
+struct zk_type *analyze_brace_init_type(struct semantics_ctx *ctx,
 		struct zk_brace_init *brace_init);
-enum ZK_BUILTIN_TYPE analyze_uint_type(uint64_t i);
-struct zk_type *analyze_val_type(struct zk_type *expect, struct zk_val *val);
+struct zk_type *analyze_dot_expr_type(struct semantics_ctx *ctx,
+		struct zk_expr *expr);
+struct zk_type *analyze_expr_type(struct semantics_ctx *ctx,
+		struct zk_expr *expr);
+struct zk_type *analyze_struct_brace_init_type(struct semantics_ctx *ctx,
+		struct zk_brace_init *brace_init);
+int analyze_trait_impl(struct zk_impl_stmt *impl);
+enum ZK_BUILTIN_TYPE analyze_cint_type(uint64_t i);
+struct zk_type *analyze_val_type(struct semantics_ctx *ctx, struct zk_val *val);
 int check_binary_expr(struct zk_binary_expr *expr);
 int check_fn_ident_equal(struct zk_ident *expect, struct zk_ident *src);
 int check_ident_equal(struct zk_ident *expect, struct zk_ident *src);
 int check_mutable(struct zk_type *type);
-int check_trait_impl(struct zk_impl_stmt *stmt);
-int check_type(struct zk_type *expect, struct zk_type *src);
-int check_type_full_equal(struct zk_type *expect, struct zk_type *src);
+int check_type(struct semantics_ctx *ctx, struct zk_type *src);
+int check_type_full_equal(struct semantics_ctx *ctx, struct zk_type *src);
 struct zk_type *implicitly_convert_each_type(
 		struct zk_type *lhs,
 		struct zk_type *rhs);

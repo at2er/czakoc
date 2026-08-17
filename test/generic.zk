@@ -1,0 +1,24 @@
+Generic type = struct[T] {
+	a T
+	b T
+}
+
+A trait = {
+	ItemType type
+	ret fn(self *Self) ItemType
+}
+
+impl A for Generic[T] {
+	ItemType type = T
+	ret fn(self *Generic[ItemType]) ItemType = {
+		return self.a
+	}
+}
+
+pub main fn(argc i32) i32 = {
+	let g0 Generic[i32] = {.a = 123, .b = 456}
+	let g1 Generic[i64] = {.a = 456, .b = 789}
+
+	return g1.ret()
+	--return 1
+}

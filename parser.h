@@ -25,6 +25,8 @@ struct zk_impl_stmt {
 	struct zk_scope scope;
 	zk_top_stmts_t stmts;
 	struct zk_ident *struct_id, *trait_id;
+
+	struct zk_ident *generic_id;
 };
 
 struct zk_stmt {
@@ -52,7 +54,8 @@ struct zk_top_stmt {
 		ZK_FN_DEF,
 		ZK_IMPL_STMT,
 		ZK_STRUCT_DEF,
-		ZK_TRAIT_DEF
+		ZK_TRAIT_DEF,
+		ZK_TYPE_ALIAS_STMT
 	} k;
 	union {
 		struct zk_fn_def fn;

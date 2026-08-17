@@ -1,7 +1,10 @@
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include "csex.h"
+#include "die.h"
 #include "ealloc.h"
+#include "str.h"
 
 static void call_fn(struct codegen *cg, struct zk_fn_call *call);
 static void dec(struct codegen *cg, struct zk_top_stmt *stmt);
@@ -9,21 +12,29 @@ static void dec_fn(struct codegen *cg, struct zk_ident *id);
 static void dec_fn_args(struct codegen *cg, zk_idents_t *args);
 static void dec_ident(struct codegen *cg, struct zk_ident *id);
 static void dec_impl(struct codegen *cg, struct zk_impl_stmt *impl);
+static void dec_impl_body(struct codegen *cg, struct zk_impl_stmt *impl);
 static void def(struct codegen *cg, struct zk_top_stmt *stmt);
 static void def_fn(struct codegen *cg, struct zk_fn_def *fn);
+static void def_generic_struct(struct codegen *cg,
+		struct zk_ident *structure,
+		struct zk_generic_instance_type *instance);
 static void def_impl(struct codegen *cg, struct zk_impl_stmt *impl);
+static void def_impl_body(struct codegen *cg, struct zk_impl_stmt *impl);
 static void def_struct(struct codegen *cg, struct zk_ident *structure);
 static void put_address_of_expr(struct codegen *cg, struct zk_address_of_expr *addrof);
 static void put_arr_type(struct codegen *cg, struct zk_arr_type *arr_type);
 static void put_binary_expr(struct codegen *cg, struct zk_binary_expr *expr);
 static void put_blk(struct codegen *cg, zk_block_t *blk);
 static void put_brace_init(struct codegen *cg, struct zk_brace_init *brace_init);
+static void put_dot_expr(struct codegen *cg, struct zk_binary_expr *expr);
 static void put_expr(struct codegen *cg, struct zk_expr *expr);
-static void put_ident(struct codegen *cg, const char *name);
+static void put_ident(struct codegen *cg, struct zk_ident *id);
 static void put_indent(struct codegen *cg);
 static void put_stmt(struct codegen *cg, struct zk_stmt *stmt);
+static void put_struct_body(struct codegen *cg, struct zk_struct_type *struct_type);
 static void put_struct_type(struct codegen *cg, struct zk_struct_type *struct_type);
 static void put_type(struct codegen *cg, struct zk_type *type);
+static void put_type_ident(struct codegen *cg, struct zk_type *type);
 static void put_val(struct codegen *cg, struct zk_val *val);
 
 static const char *src_file_head =
@@ -61,7 +72,7 @@ static const char *strop[] = {
 void
 call_fn(struct codegen *cg, struct zk_fn_call *call)
 {
-	put_ident(cg, call->fn->name);
+	put_ident(cg, call->fn);
 	fputc('(', cg->out);
 	for (int i = 0; i < call->args.n; i++) {
 		if (i)
@@ -114,21 +125,35 @@ dec_ident(struct codegen *cg, struct zk_ident *id)
 {
 	put_type(cg, &id->type);
 	fputc(' ', cg->out);
-	put_ident(cg, id->name);
+	put_ident(cg, id);
 }
 
 void
 dec_impl(struct codegen *cg, struct zk_impl_stmt *impl)
 {
-	cg->name_prefix = ecalloc(strlen(impl->struct_id->name) + 2, 1);
-	strcpy(cg->name_prefix, impl->struct_id->name);
-	strcat(cg->name_prefix, "__");
-	for (int i = 0; i < impl->stmts.n; i++) {
-		fputc('\n', cg->out);
-		dec(cg, impl->stmts.e[i]);
+	struct zk_type *instance;
+	struct zk_struct_type *st;
+
+	if (impl->generic_id) {
+		st = &impl->struct_id->type.u.struct_type;
+		instance = &impl->generic_id->type;
+		instance->builtin = ZK_TYPE_REF;
+		for (int i = 0; i < st->generic_instances.n; i++) {
+			instance->u.type = st->generic_instances.e[i]->t;
+			cg->generic_instance = instance->u.type;
+			dec_impl_body(cg, impl);
+		}
+		cg->generic_instance = NULL;
+		return;
 	}
-	free(cg->name_prefix);
-	cg->name_prefix = NULL;
+	dec_impl_body(cg, impl);
+}
+
+void
+dec_impl_body(struct codegen *cg, struct zk_impl_stmt *impl)
+{
+	for (int i = 0; i < impl->stmts.n; i++)
+		dec(cg, impl->stmts.e[i]);
 }
 
 void
@@ -152,52 +177,77 @@ def_fn(struct codegen *cg, struct zk_fn_def *fn)
 {
 	put_type(cg, &fn->id->type);
 	fputc('\n', cg->out);
-	put_ident(cg, fn->id->name);
+	put_ident(cg, fn->id);
 	dec_fn_args(cg, &fn->id->u.fn.args);
 	fputc('\n', cg->out);
 	put_blk(cg, &fn->blk);
 }
 
 void
+def_generic_struct(struct codegen *cg, struct zk_ident *structure,
+		struct zk_generic_instance_type *instance)
+{
+	struct zk_struct_type *st = &instance->instance->u.struct_type;
+
+	fputs("struct ", cg->out);
+	put_ident(cg, structure);
+	fputs("__", cg->out);
+	put_type_ident(cg, instance->t);
+	put_struct_body(cg, st);
+}
+
+void
 def_impl(struct codegen *cg, struct zk_impl_stmt *impl)
 {
-	cg->name_prefix = ecalloc(strlen(impl->struct_id->name) + 2, 1);
-	strcpy(cg->name_prefix, impl->struct_id->name);
-	strcat(cg->name_prefix, "__");
-	for (int i = 0; i < impl->stmts.n; i++) {
-		fputc('\n', cg->out);
-		def(cg, impl->stmts.e[i]);
+	struct zk_type *instance;
+	struct zk_struct_type *st;
+
+	if (impl->generic_id) {
+		st = &impl->struct_id->type.u.struct_type;
+		instance = &impl->generic_id->type;
+		instance->builtin = ZK_TYPE_REF;
+		for (int i = 0; i < st->generic_instances.n; i++) {
+			instance->u.type = st->generic_instances.e[i]->t;
+			cg->generic_instance = instance->u.type;
+			def_impl_body(cg, impl);
+		}
+		cg->generic_instance = NULL;
+		return;
 	}
-	free(cg->name_prefix);
-	cg->name_prefix = NULL;
+	def_impl_body(cg, impl);
+}
+
+void
+def_impl_body(struct codegen *cg, struct zk_impl_stmt *impl)
+{
+	for (int i = 0; i < impl->stmts.n; i++)
+		def(cg, impl->stmts.e[i]);
 }
 
 void
 def_struct(struct codegen *cg, struct zk_ident *structure)
 {
 	struct zk_struct_type *st = &structure->type.u.struct_type;
-	fputs("struct ", cg->out);
-	put_ident(cg, structure->name);
-	fputs(" {\n", cg->out);
-	
-	cg->blk_lv++;
-	for (int i = 0; i < st->members.n; i++) {
-		put_indent(cg);
-		put_type(cg, &st->members.e[i]->type);
-		fputc(' ', cg->out);
-		fputs(st->members.e[i]->name, cg->out);
-		fputs(";\n", cg->out);
+
+	if (st->generic_instances.n) {
+		for (int i = 0; i < st->generic_instances.n; i++) {
+			if (i)
+				fputc('\n', cg->out);
+			def_generic_struct(cg, structure, st->generic_instances.e[i]);
+		}
+		return;
 	}
-	cg->blk_lv--;
-	put_indent(cg);
-	fputs("};", cg->out);
+
+	fputs("struct ", cg->out);
+	put_ident(cg, structure);
+	put_struct_body(cg, st);
 }
 
 void
 put_address_of_expr(struct codegen *cg, struct zk_address_of_expr *addrof)
 {
 	fputc('&', cg->out);
-	put_ident(cg, addrof->id->name);
+	put_ident(cg, addrof->id);
 }
 
 void
@@ -211,6 +261,10 @@ put_arr_type(struct codegen *cg, struct zk_arr_type *arr_type)
 void
 put_binary_expr(struct codegen *cg, struct zk_binary_expr *expr)
 {
+	if (expr->op == ZK_DOT) {
+		put_dot_expr(cg, expr);
+		return;
+	}
 	put_val(cg, expr->lhs);
 	if (expr->op != ZK_OP_COUNT) {
 		fputc(' ', cg->out);
@@ -267,6 +321,35 @@ put_brace_init(struct codegen *cg, struct zk_brace_init *brace_init)
 }
 
 void
+put_dot_expr(struct codegen *cg, struct zk_binary_expr *expr)
+{
+	struct zk_ident *lhsid = expr->lhs->u.id;
+	struct zk_type *lhst = open_type(&lhsid->type), *orig_generic_instance;
+
+	assert(expr->lhs->k == ZK_IDENT_VAL);
+	assert(lhst->builtin == ZK_STRUCT ||
+			lhst->builtin == ZK_PTR);
+	if (expr->rhs->k == ZK_IDENT_VAL) {
+		put_ident(cg, lhsid);
+		if (lhst->builtin == ZK_PTR) {
+			fputs("->", cg->out);
+		} else {
+			fputc('.', cg->out);
+		}
+		fputs(expr->rhs->u.id->realname, cg->out);
+	} else if (expr->rhs->k == ZK_EXPR_VAL) {
+		assert(expr->rhs->u.expr->k == ZK_FN_CALL_EXPR);
+		orig_generic_instance = cg->generic_instance;
+		assert(lhst->builtin == ZK_STRUCT);
+		cg->generic_instance = lhst->u.struct_type.cur_instance;
+		call_fn(cg, &expr->rhs->u.expr->u.fn_call);
+		cg->generic_instance = orig_generic_instance;
+	} else {
+		die("put_dot_expr()\n");
+	}
+}
+
+void
 put_expr(struct codegen *cg, struct zk_expr *expr)
 {
 	switch (expr->k) {
@@ -283,11 +366,13 @@ put_expr(struct codegen *cg, struct zk_expr *expr)
 }
 
 void
-put_ident(struct codegen *cg, const char *name)
+put_ident(struct codegen *cg, struct zk_ident *id)
 {
-	if (cg->blk_lv == 0 && cg->name_prefix)
-		fputs(cg->name_prefix, cg->out);
-	fputs(name, cg->out);
+	fputs(id->realname, cg->out);
+	if (cg->generic_instance && id->k == ZK_FN) {
+		fputs("__", cg->out);
+		put_type_ident(cg, cg->generic_instance);
+	}
 	if (cg->after_arr_type) {
 		fputc('[', cg->out);
 		if (cg->arr_siz)
@@ -314,7 +399,7 @@ put_stmt(struct codegen *cg, struct zk_stmt *stmt)
 	case ZK_IDENT_DEF_STMT:
 		put_type(cg, &stmt->u.ident_def.id->type);
 		fputc(' ', cg->out);
-		put_ident(cg, stmt->u.ident_def.id->name);
+		put_ident(cg, stmt->u.ident_def.id);
 		fputs(" = ", cg->out);
 		put_expr(cg, stmt->u.ident_def.val);
 		break;
@@ -337,15 +422,36 @@ put_stmt(struct codegen *cg, struct zk_stmt *stmt)
 }
 
 void
+put_struct_body(struct codegen *cg, struct zk_struct_type *struct_type)
+{
+	fputs(" {\n", cg->out);
+
+	cg->blk_lv++;
+	for (int i = 0; i < struct_type->members.n; i++) {
+		if (struct_type->members.e[i]->k != ZK_IDENT)
+			continue;
+		put_indent(cg);
+		put_type(cg, &struct_type->members.e[i]->type);
+		fputc(' ', cg->out);
+		fputs(struct_type->members.e[i]->name, cg->out);
+		fputs(";\n", cg->out);
+	}
+	cg->blk_lv--;
+	put_indent(cg);
+	fputs("};", cg->out);
+}
+
+void
 put_struct_type(struct codegen *cg, struct zk_struct_type *struct_type)
 {
 	fputs("struct ", cg->out);
-	put_ident(cg, struct_type->id->name);
+	put_ident(cg, struct_type->id);
 }
 
 void
 put_type(struct codegen *cg, struct zk_type *type)
 {
+	type = deref_type(type);
 	switch (type->builtin) {
 	case ZK_ARR:
 		put_arr_type(cg, &type->u.arr_type);
@@ -356,6 +462,34 @@ put_type(struct codegen *cg, struct zk_type *type)
 		break;
 	case ZK_STRUCT:
 		put_struct_type(cg, &type->u.struct_type);
+		break;
+	case ZK_GENERIC_INSTANCE_TYPE:
+		put_type(cg, type->u.generic_instance_type->instance);
+		fputs("__", cg->out);
+		put_type_ident(cg, type->u.generic_instance_type->t);
+		break;
+	default:
+		fputs(type2ctype[type->builtin], cg->out);
+		break;
+	}
+}
+
+void
+put_type_ident(struct codegen *cg, struct zk_type *type)
+{
+	type = deref_type(type);
+	switch (type->builtin) {
+	case ZK_ARR:
+		fputs("arr__", cg->out);
+		put_type_ident(cg, type->u.arr_type.type);
+		break;
+	case ZK_PTR:
+		fputs("ptr__", cg->out);
+		put_type_ident(cg, type->u.type);
+		break;
+	case ZK_STRUCT:
+		fputs("struct__", cg->out);
+		put_ident(cg, type->u.struct_type.id);
 		break;
 	default:
 		fputs(type2ctype[type->builtin], cg->out);
@@ -376,10 +510,12 @@ put_val(struct codegen *cg, struct zk_val *val)
 		fputc(')', cg->out);
 		break;
 	case ZK_IDENT_VAL:
-		put_ident(cg, val->u.id->name);
+		put_ident(cg, val->u.id);
 		break;
 	case ZK_INT_VAL: // use fprintf(), baka
 		fprintf(cg->out, "%ld", val->u.i.i);
+		break;
+	case ZK_UNANALYZED_IDENT_VAL:
 		break;
 	}
 }
@@ -405,4 +541,14 @@ codegen(struct codegen *cg, FILE *out)
 
 	for (int i = 0; i < cg->stmts.n; i++)
 		def(cg, cg->stmts.e[i]);
+}
+
+char *
+codegen_get_realname(const char *prefix, const char *name)
+{
+	struct str s;
+	estr_from_cstr(&s, prefix);
+	estr_append_cstr(&s, "__");
+	estr_append_cstr(&s, name);
+	return s.s;
 }
