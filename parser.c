@@ -1062,6 +1062,8 @@ parse(const char *path)
 	p.lexer.ident_tok = TOK_IDENT;
 	p.lexer.int_tok = TOK_INT;
 	p.lexer.string_tok = TOK_STRING;
+	p.lexer.keyword_count = TOK_KEYWORD_COUNT;
+	p.lexer.punct_count = TOK_PUNCT_COUNT;
 	p.lexer.tokens = tokens;
 	p.lexer.comments = comments;
 	src_siz = sclexer_read_file(fp, &src);
@@ -1091,6 +1093,9 @@ parse(const char *path)
 			peek(&p);
 			stmt = parse_top_ident(&p, pub);
 			pub = 0;
+			break;
+		default:
+			unexpected(&p.tok);
 			break;
 		}
 		if (stmt)

@@ -17,6 +17,12 @@ struct sclexer {
 	    int_tok,
 	    string_tok;
 
+	/* Ensure keywords and puncts are continuous. It will like this:
+	 * {TK_KW_0, TK_KW_1, TK_KW_COUNT, TK_PT_0, TK_PT_1, TK_PT_COUNT},
+	 *
+	 * sclexer_init() will set [punct_count] to TK_PT_COUNT - TK_KW_COUNT */
+	int keyword_count, punct_count;
+
 	int (*ident_reader)(struct sclexer *lexer);
 	int (*int_reader)(struct sclexer *lexer);
 	int (*string_reader)(struct sclexer *lexer);
@@ -39,7 +45,9 @@ struct sclexer_tok {
 };
 
 /* always match the longest one */
-int sclexer_has_match(const char **matches, const char *buf, int *idx);
+int sclexer_has_match(const char **matches, int count,
+		const char *buf, int blen,
+		int *idx);
 int sclexer_ident_reader(struct sclexer *lexer);
 int sclexer_int_reader(struct sclexer *lexer);
 int sclexer_init(struct sclexer *lexer, const char *buf);
@@ -58,11 +66,17 @@ int sclexer_skip_space(struct sclexer *lexer, struct sclexer_tok *tok);
 #include <string.h>
 
 int
-sclexer_has_match(const char **matches, const char *buf, int *idx)
+sclexer_has_match(const char **matches, int count,
+		const char *buf, int blen,
+		int *idx)
 {
 	int len, prv = 0;
 	for (int i = 0; matches[i]; i++) {
+		if (count && i >= count)
+			break;
 		len = strlen(matches[i]);
+		if (blen && blen != len)
+			continue;
 		if (strncmp(matches[i], buf, len) == 0) {
 			if (len < prv)
 				continue;
@@ -105,6 +119,10 @@ sclexer_init(struct sclexer *lexer, const char *buf)
 		lexer->int_reader = sclexer_int_reader;
 	if (!lexer->string_reader)
 		lexer->string_reader = sclexer_string_reader;
+	if (!lexer->keyword_count)
+		return 1;
+	if (lexer->punct_count)
+		lexer->punct_count -= lexer->keyword_count + 1;
 	lexer->buf = lexer->pos = buf;
 	return 0;
 }
@@ -126,8 +144,13 @@ sclexer_next(struct sclexer *lexer, struct sclexer_tok *tok)
 	if (!*lexer->pos)
 		return 0;
 
-	if ((tok->len = sclexer_has_match(lexer->tokens, lexer->pos, &tok->type)))
+	if (lexer->punct_count &&
+	    (tok->len = sclexer_has_match(lexer->tokens + lexer->keyword_count + 1,
+			lexer->punct_count,
+			lexer->pos, 0, &tok->type))) {
+		tok->type += lexer->keyword_count + 1;
 		goto end;
+	}
 
 	if (lexer->int_tok != -1 &&
 	    (tok->len = lexer->int_reader(lexer))) {
@@ -137,6 +160,13 @@ sclexer_next(struct sclexer *lexer, struct sclexer_tok *tok)
 
 	if (lexer->ident_tok != -1 &&
 	    (tok->len = lexer->ident_reader(lexer))) {
+		if ((ret = sclexer_has_match(lexer->tokens, lexer->keyword_count,
+				tok->str, tok->len,
+				&tok->type))) {
+			tok->len = ret;
+			goto end;
+		}
+
 		tok->type = lexer->ident_tok;
 		goto end;
 	}
@@ -216,7 +246,7 @@ sclexer_skip_space(struct sclexer *lexer, struct sclexer_tok *tok)
 			lexer->pos = p + 1;
 		}
 		return 1;
-	} else if ((len = sclexer_has_match(lexer->comments, p, NULL))) {
+	} else if ((len = sclexer_has_match(lexer->comments, 0, p, 0, NULL))) {
 		for (p += len; *p && *p != '\n'; p++)
 			len++;
 	} else {
