@@ -7,6 +7,7 @@
 #include "str.h"
 
 enum TOKEN {
+	TOK_AND,
 	TOK_ELSE,
 	TOK_ENUM,
 	TOK_EXTERN,
@@ -16,6 +17,7 @@ enum TOKEN {
 	TOK_IMPL,
 	TOK_LET,
 	TOK_MUT,
+	TOK_OR,
 	TOK_PUB,
 	TOK_RETURN,
 	TOK_SELF,
@@ -68,6 +70,9 @@ enum TOKEN {
 };
 
 enum OPERATOR {
+	ZK_AND,
+	ZK_OR,
+
 	ZK_ADD,
 	ZK_DIV,
 	ZK_MUL,

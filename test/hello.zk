@@ -1,13 +1,5 @@
-and fn(conda i32, condb i32) i32 = {
-	if conda {
-		if condb {
-			return 1
-		}
-	}
-}
-
 pub main fn(argc i32, argv *[u8]) i32 = {
-	if 3 + 4 == 7 {
+	if 3 + 4 == 7 and 5 + 5 == 10 {
 		return 0
 	} else {
 		return 1

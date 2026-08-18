@@ -53,6 +53,8 @@ static const char *type2ctype[] = {
 };
 
 static const char *strop[] = {
+	[ZK_AND] = "&&",
+	[ZK_OR] = "||",
 	[ZK_ADD] = "+",
 	[ZK_DIV] = "/",
 	[ZK_MUL] = "*",
@@ -62,6 +64,7 @@ static const char *strop[] = {
 	[ZK_GT] = ">",
 	[ZK_LE] = "<=",
 	[ZK_LT] = "<",
+	[ZK_NE] = "!=",
 	[ZK_ASSIGN] = "=",
 	[ZK_ADD_ASSIGN] = "+=",
 	[ZK_DIV_ASSIGN] = "/=",

@@ -82,6 +82,7 @@ static struct zk_val *parse_val(struct parser *p);
 static const char *comments[] = { "--", NULL };
 
 static const char *tokens[] = {
+	[TOK_AND] = "and",
 	[TOK_ELSE] = "else",
 	[TOK_ENUM] = "enum",
 	[TOK_EXTERN] = "extern",
@@ -91,6 +92,7 @@ static const char *tokens[] = {
 	[TOK_IMPL] = "impl",
 	[TOK_LET] = "let",
 	[TOK_MUT] = "mut",
+	[TOK_OR] = "or",
 	[TOK_PUB] = "pub",
 	[TOK_RETURN] = "return",
 	[TOK_SELF] = "Self",
@@ -134,17 +136,20 @@ static const char *tokens[] = {
 };
 
 static int op_bind_power[] = {
-	[ZK_ADD] = 11,
-	[ZK_DIV] = 12,
-	[ZK_MUL] = 12,
-	[ZK_SUB] = 11,
+	[ZK_AND] = 2,
+	[ZK_OR] = 1,
 
-	[ZK_EQ] = 1,
-	[ZK_GE] = 1,
-	[ZK_GT] = 1,
-	[ZK_LE] = 1,
-	[ZK_LT] = 1,
-	[ZK_NE] = 1,
+	[ZK_ADD] = 21,
+	[ZK_DIV] = 22,
+	[ZK_MUL] = 22,
+	[ZK_SUB] = 21,
+
+	[ZK_EQ] = 10,
+	[ZK_GE] = 10,
+	[ZK_GT] = 10,
+	[ZK_LE] = 10,
+	[ZK_LT] = 10,
+	[ZK_NE] = 10,
 
 	[ZK_ASSIGN] = 0,
 	[ZK_ADD_ASSIGN] = 0,
@@ -152,7 +157,7 @@ static int op_bind_power[] = {
 	[ZK_MUL_ASSIGN] = 0,
 	[ZK_SUB_ASSIGN] = 0,
 
-	[ZK_DOT] = 999
+	[ZK_DOT] = 9178
 };
 
 struct zk_scope *
@@ -178,11 +183,14 @@ enum OPERATOR
 get_binary_op(enum TOKEN tok)
 {
 	switch (tok) {
+	case TOK_AND: return ZK_AND;
+	case TOK_OR: return ZK_OR;
 	case TOK_EQ: return ZK_EQ;
 	case TOK_GE: return ZK_GE;
 	case TOK_GT: return ZK_GT;
 	case TOK_LE: return ZK_LE;
 	case TOK_LT: return ZK_LT;
+	case TOK_NE: return ZK_NE;
 	case TOK_MINUS: return ZK_SUB;
 	case TOK_PLUS: return ZK_ADD;
 	case TOK_SLASH: return ZK_DIV;
