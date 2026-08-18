@@ -1,0 +1,22 @@
+Bool type = enum {
+	False
+	True
+}
+
+I type = struct {
+	i i8
+}
+
+U type = struct {
+	u u64
+}
+
+TaggedEnum type = union with enum {
+	i I
+	u U
+}
+
+pub main fn(argc i32, argv *[u8]) = {
+	let tag TaggedEnum = {.i = 123}
+	let e Bool = Bool.False
+}

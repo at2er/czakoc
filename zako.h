@@ -8,6 +8,7 @@
 
 enum TOKEN {
 	TOK_ELSE,
+	TOK_ENUM,
 	TOK_EXTERN,
 	TOK_FN,
 	TOK_FOR,
@@ -30,6 +31,8 @@ enum TOKEN {
 	TOK_GT,
 	TOK_LE,
 	TOK_LT,
+	TOK_NE,
+
 	TOK_MINUS,
 	TOK_PLUS,
 	TOK_SLASH,
@@ -71,6 +74,7 @@ enum OPERATOR {
 	ZK_GT,
 	ZK_LE,
 	ZK_LT,
+	ZK_NE,
 
 	ZK_ASSIGN,
 	ZK_ADD_ASSIGN,

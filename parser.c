@@ -83,6 +83,7 @@ static const char *comments[] = { "--", NULL };
 
 static const char *tokens[] = {
 	[TOK_ELSE] = "else",
+	[TOK_ENUM] = "enum",
 	[TOK_EXTERN] = "extern",
 	[TOK_FN] = "fn",
 	[TOK_FOR] = "for",
@@ -105,6 +106,8 @@ static const char *tokens[] = {
 	[TOK_GT] = ">",
 	[TOK_LE] = "<=",
 	[TOK_LT] = "<",
+	[TOK_NE] = "!=",
+
 	[TOK_MINUS] = "-",
 	[TOK_PLUS] = "+",
 	[TOK_SLASH] = "/",
@@ -131,16 +134,17 @@ static const char *tokens[] = {
 };
 
 static int op_bind_power[] = {
-	[ZK_ADD] = 1,
-	[ZK_DIV] = 2,
-	[ZK_MUL] = 2,
-	[ZK_SUB] = 1,
+	[ZK_ADD] = 11,
+	[ZK_DIV] = 12,
+	[ZK_MUL] = 12,
+	[ZK_SUB] = 11,
 
-	[ZK_EQ] = 3,
-	[ZK_GE] = 3,
-	[ZK_GT] = 3,
-	[ZK_LE] = 3,
-	[ZK_LT] = 3,
+	[ZK_EQ] = 1,
+	[ZK_GE] = 1,
+	[ZK_GT] = 1,
+	[ZK_LE] = 1,
+	[ZK_LT] = 1,
+	[ZK_NE] = 1,
 
 	[ZK_ASSIGN] = 0,
 	[ZK_ADD_ASSIGN] = 0,
@@ -148,7 +152,7 @@ static int op_bind_power[] = {
 	[ZK_MUL_ASSIGN] = 0,
 	[ZK_SUB_ASSIGN] = 0,
 
-	[ZK_DOT] = 9
+	[ZK_DOT] = 999
 };
 
 struct zk_scope *
