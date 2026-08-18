@@ -2,5 +2,6 @@ extern read fn(fd u32, buf [u8], len u64) i64
 extern write fn(fd u32, buf [u8], len u64) i64
 
 pub main fn(argc i32, argv *[u8]) i32 = {
+	write(1, "hello world\n", 12)
 	return 0
 }

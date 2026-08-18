@@ -12,12 +12,14 @@
 
 struct sclexer;
 struct sclexer {
-	int ident_tok,
+	int eol_tok,
+	    ident_tok,
 	    int_tok,
-	    eol_tok;
+	    string_tok;
 
 	int (*ident_reader)(struct sclexer *lexer);
 	int (*int_reader)(struct sclexer *lexer);
+	int (*string_reader)(struct sclexer *lexer);
 
 	const char **tokens;
 	const char **comments;
@@ -44,6 +46,7 @@ int sclexer_init(struct sclexer *lexer, const char *buf);
 int sclexer_nmatches(const char **matches);
 int sclexer_next(struct sclexer *lexer, struct sclexer_tok *tok);
 size_t sclexer_read_file(FILE *fp, char **buf);
+int sclexer_string_reader(struct sclexer *lexer);
 int sclexer_skip_space(struct sclexer *lexer, struct sclexer_tok *tok);
 
 #endif /* SCLEXER_H */
@@ -100,6 +103,8 @@ sclexer_init(struct sclexer *lexer, const char *buf)
 		lexer->ident_reader = sclexer_ident_reader;
 	if (!lexer->int_reader)
 		lexer->int_reader = sclexer_int_reader;
+	if (!lexer->string_reader)
+		lexer->string_reader = sclexer_string_reader;
 	lexer->buf = lexer->pos = buf;
 	return 0;
 }
@@ -136,6 +141,12 @@ sclexer_next(struct sclexer *lexer, struct sclexer_tok *tok)
 		goto end;
 	}
 
+	if (lexer->string_tok != -1 &&
+	    (tok->len = lexer->string_reader(lexer))) {
+		tok->type = lexer->string_tok;
+		goto end;
+	}
+
 	return -1;
 end:
 	lexer->col += tok->len;
@@ -167,6 +178,25 @@ sclexer_read_file(FILE *fp, char **buf)
 
 	*buf = res;
 	return len;
+}
+
+int
+sclexer_string_reader(struct sclexer *lexer)
+{
+	int after_back_slash = 0;
+	const char *p = lexer->pos + 1;
+
+again:
+	if (*p == '"' && !after_back_slash)
+		goto end;
+	if (after_back_slash)
+		after_back_slash = 0;
+	if (*p == '\\')
+		after_back_slash = 1;
+	p++;
+	goto again;
+end:
+	return p - lexer->pos + 1;
 }
 
 int

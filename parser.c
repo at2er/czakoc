@@ -70,6 +70,7 @@ static struct zk_val *parse_ident_val(struct parser *p, struct zk_val *v);
 static struct zk_stmt *parse_if_stmt(struct parser *p);
 static struct zk_top_stmt *parse_impl_stmt(struct parser *p);
 static struct zk_stmt *parse_return_stmt(struct parser *p);
+static struct zk_val *parse_string_val(struct parser *p, struct zk_val *v);
 static struct zk_struct_type *parse_struct_type(struct parser *p, struct zk_type *typ);
 static struct zk_top_stmt *parse_top_ident(struct parser *p, int pub);
 static struct zk_top_stmt *parse_trait_def(struct parser *p, struct zk_ident *id);
@@ -82,6 +83,7 @@ static const char *comments[] = { "--", NULL };
 
 static const char *tokens[] = {
 	[TOK_ELSE] = "else",
+	[TOK_EXTERN] = "extern",
 	[TOK_FN] = "fn",
 	[TOK_FOR] = "for",
 	[TOK_IF] = "if",
@@ -397,9 +399,30 @@ parse_brace_init_member_idx(struct parser *p,
 struct zk_stmt *
 parse_expr_stmt(struct parser *p)
 {
+	struct zk_binary_expr *binary;
+	struct zk_expr *e;
 	struct zk_stmt *stmt = ecalloc(1, sizeof(*stmt));
+	struct zk_type *t, fake_expect;
+	struct semantics_ctx sema = {0};
+
 	stmt->k = ZK_EXPR_STMT;
 	stmt->u.expr_stmt = parse_binary_expr(p);
+	fake_expect.builtin = ZK_ANY_TYPE;
+	sema.expect = &fake_expect;
+	sema.scope = p->cscope;
+	t = analyze_expr_type(&sema, stmt->u.expr_stmt);
+	if (!t)
+		throw_semantics_err(p, -1);
+
+	binary = &stmt->u.expr_stmt->u.binary;
+	if (binary->op == ZK_OP_COUNT &&
+			binary->lhs->k == ZK_EXPR_VAL &&
+			binary->lhs->u.expr->k == ZK_FN_CALL_EXPR) {
+		e = binary->lhs->u.expr;
+		free(stmt->u.expr_stmt);
+		stmt->u.expr_stmt = e;
+		return stmt;
+	}
 	if (!RANGE(stmt->u.expr_stmt->u.binary.op, ZK_ASSIGN, ZK_SUB_ASSIGN))
 		throw(p, "not expression statement");
 	return stmt;
@@ -426,6 +449,7 @@ parse_fn_call(struct parser *p)
 		if (!(e = parse_binary_expr(p)))
 			return NULL;
 		darr_append(&call->args, e);
+		next(p);
 	} while (p->tok.type == TOK_COMMA);
 	expect(p, TOK_RPAREN);
 
@@ -687,6 +711,20 @@ parse_return_stmt(struct parser *p)
 	return stmt;
 }
 
+struct zk_val *
+parse_string_val(struct parser *p, struct zk_val *v)
+{
+	struct zk_arr_type *arr_type = &v->u.str.type.u.arr_type;
+	next(p);
+	v->k = ZK_STRING_VAL;
+	v->u.str.s = duptok(p);
+	v->u.str.type.builtin = ZK_CONST_STR_TYPE;
+	arr_type->type = ecalloc(1, sizeof(*arr_type));
+	arr_type->type->builtin = ZK_U8;
+	arr_type->siz = strlen(v->u.str.s);
+	return v;
+}
+
 struct zk_struct_type *
 parse_struct_type(struct parser *p, struct zk_type *typ)
 {
@@ -743,10 +781,18 @@ parse_top_ident(struct parser *p, int pub)
 	id->pub = pub;
 	if (p->name_prefix)
 		id->realname = codegen_get_realname(p->name_prefix, id->name);
-	if (pub)
-		darr_append(&p->cscope->parent->idents, id);
-	else
+	switch (pub) {
+	case 0:
 		darr_append(&p->cscope->idents, id);
+		break;
+	case 1:
+		darr_append(&p->cscope->parent->idents, id);
+		break;
+	case 2:
+		id->extern_ = 1;
+		darr_append(&p->cscope->idents, id);
+		break;
+	}
 
 	next(p);
 	switch (p->tok.type) {
@@ -982,6 +1028,9 @@ parse_val(struct parser *p)
 			v->u.i.type.builtin = analyze_cint_type(v->u.i.i);
 		}
 		break;
+	case TOK_STRING:
+		peek(p);
+		return parse_string_val(p, v);
 	default:
 		unexpected(&p->tok);
 		break;
@@ -1008,6 +1057,7 @@ parse(const char *path)
 	p.lexer.eol_tok = TOK_EOL;
 	p.lexer.ident_tok = TOK_IDENT;
 	p.lexer.int_tok = TOK_INT;
+	p.lexer.string_tok = TOK_STRING;
 	p.lexer.tokens = tokens;
 	p.lexer.comments = comments;
 	src_siz = sclexer_read_file(fp, &src);
@@ -1020,6 +1070,9 @@ parse(const char *path)
 	while (next(&p)) {
 		stmt = NULL;
 		switch (p.tok.type) {
+		case TOK_EXTERN:
+			stmt = parse_top_ident(&p, 2);
+			break;
 		case TOK_IMPL:
 			stmt = parse_impl_stmt(&p);
 			break;

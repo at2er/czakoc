@@ -101,7 +101,9 @@ dec(struct codegen *cg, struct zk_top_stmt *stmt)
 void
 dec_fn(struct codegen *cg, struct zk_ident *id)
 {
-	if (!id->pub)
+	if (id->extern_)
+		fputs("extern ", cg->out);
+	else if (!id->pub)
 		fputs("static ", cg->out);
 	dec_ident(cg, id);
 	dec_fn_args(cg, &id->u.fn.args);
@@ -169,12 +171,13 @@ def(struct codegen *cg, struct zk_top_stmt *stmt)
 	default:
 		return;
 	}
-	fputc('\n', cg->out);
 }
 
 void
 def_fn(struct codegen *cg, struct zk_fn_def *fn)
 {
+	if (fn->id->extern_)
+		return;
 	put_type(cg, &fn->id->type);
 	fputc('\n', cg->out);
 	put_ident(cg, fn->id);
@@ -515,6 +518,9 @@ put_val(struct codegen *cg, struct zk_val *val)
 	case ZK_INT_VAL: // use fprintf(), baka
 		fprintf(cg->out, "%ld", val->u.i.i);
 		break;
+	case ZK_STRING_VAL:
+		fputs(val->u.str.s, cg->out);
+		break;
 	case ZK_UNANALYZED_IDENT_VAL:
 		break;
 	}
@@ -541,6 +547,8 @@ codegen(struct codegen *cg, FILE *out)
 
 	for (int i = 0; i < cg->stmts.n; i++)
 		def(cg, cg->stmts.e[i]);
+
+	fputc('\n', out);
 }
 
 char *

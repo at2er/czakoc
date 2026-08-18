@@ -188,7 +188,6 @@ analyze_dot_expr_type(struct semantics_ctx *ctx, struct zk_expr *expr)
 struct zk_type *
 analyze_expr_type(struct semantics_ctx *ctx, struct zk_expr *expr)
 {
-	ctx->expect = open_type(ctx->expect);
 	switch (expr->k) {
 	case ZK_ADDRESS_OF_EXPR:
 		return &expr->u.address_of.type;
@@ -266,6 +265,8 @@ analyze_val_type(struct semantics_ctx *ctx, struct zk_val *val)
 		return &val->u.id->type;
 	case ZK_INT_VAL:
 		return &val->u.i.type;
+	case ZK_STRING_VAL:
+		return &val->u.str.type;
 	case ZK_UNANALYZED_IDENT_VAL:
 		return NULL;
 	}

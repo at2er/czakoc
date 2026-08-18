@@ -1,5 +1,6 @@
 #ifndef CZAKOC_H
 #define CZAKOC_H
+#include <stdbool.h>
 #include <stdint.h>
 #include "darr.h"
 #include "macros.h"
@@ -7,6 +8,7 @@
 
 enum TOKEN {
 	TOK_ELSE,
+	TOK_EXTERN,
 	TOK_FN,
 	TOK_FOR,
 	TOK_IF,
@@ -15,6 +17,7 @@ enum TOKEN {
 	TOK_MUT,
 	TOK_PUB,
 	TOK_RETURN,
+	TOK_SELF,
 	TOK_STRUCT,
 	TOK_TRAIT,
 	TOK_TYPE,
@@ -52,6 +55,7 @@ enum TOKEN {
 	TOK_EOL,
 	TOK_IDENT,
 	TOK_INT,
+	TOK_STRING,
 
 	TOK_ERR
 };
@@ -82,12 +86,19 @@ enum OPERATOR {
 #define IS_ASSIGN_EXPR(BINARY_OP) RANGE((BINARY_OP), ZK_ASSIGN, ZK_SUB_ASSIGN)
 
 typedef darr(struct zk_expr*) zk_exprs_t;
+typedef darr(struct zk_generic_instance_type*) zk_generic_instances_t;
 typedef darr(struct zk_ident*) zk_idents_t;
+typedef darr(struct zk_type) zk_types_t;
 typedef darr(struct zk_val*) zk_vals_t;
 
 struct zk_arr_type {
 	struct zk_type *type;
 	unsigned int siz;
+};
+
+struct zk_generic_instance_type {
+	struct zk_type *instance;
+	struct zk_type *t;
 };
 
 struct zk_scope {
@@ -99,6 +110,10 @@ struct zk_scope {
 struct zk_struct_type {
 	struct zk_ident *id;
 	zk_idents_t members;
+
+	struct zk_type *cur_instance;
+	zk_generic_instances_t generic_instances;
+	bool generics;
 };
 
 struct zk_type {
@@ -106,11 +121,19 @@ struct zk_type {
 		ZK_U8, ZK_U16, ZK_U32, ZK_U64,
 		ZK_I8, ZK_I16, ZK_I32, ZK_I64,
 
-		ZK_ARR, ZK_PTR, ZK_STRUCT
+		ZK_CI8, ZK_CI16, ZK_CI32, ZK_CI64,
+
+		ZK_ARR, ZK_PTR, ZK_STRUCT,
+
+		/* internal types */
+		ZK_ANY_TYPE, ZK_CONST_STR_TYPE,
+		ZK_GENERIC_TYPE, ZK_GENERIC_INSTANCE_TYPE,
+		ZK_SELF_TYPE, ZK_TYPE_REF
 	} builtin;
 
 	union {
 		struct zk_arr_type arr_type;
+		struct zk_generic_instance_type *generic_instance_type;
 		struct zk_struct_type struct_type;
 		struct zk_type *type;
 	} u;
@@ -132,6 +155,7 @@ struct zk_binary_expr {
 struct zk_fn_call {
 	struct zk_ident *fn;
 	zk_exprs_t args;
+	char *unanalyzed_id;
 };
 
 struct zk_if_expr {
@@ -164,9 +188,9 @@ struct zk_trait {
 };
 
 struct zk_ident {
-	char *name;
+	char *name, *realname;
 	struct zk_type type;
-	unsigned int pub:1;
+	unsigned int pub:1, extern_:1;
 
 	enum ZK_IDENT_KIND {
 		ZK_FN,
@@ -208,12 +232,18 @@ struct zk_int_val {
 	struct zk_type type;
 };
 
+struct zk_string_val {
+	char *s;
+	struct zk_type type;
+};
+
 struct zk_val {
 	enum {
 		ZK_BRACE_INIT_VAL,
 		ZK_EXPR_VAL,
 		ZK_IDENT_VAL,
 		ZK_INT_VAL,
+		ZK_STRING_VAL,
 
 		ZK_UNANALYZED_IDENT_VAL
 	} k;
@@ -222,14 +252,25 @@ struct zk_val {
 		struct zk_expr *expr;
 		struct zk_int_val i; /* shit */
 		struct zk_ident *id;
+		struct zk_string_val str;
 		char *unanalyzed_id;
 	} u;
 };
 
-#define IS_INTEGER(BUILTIN_TYPE) (RANGE((BUILTIN_TYPE), ZK_U8, ZK_I64))
-#define IS_SIGNED_INTEGER(BUILTIN_TYPE) (RANGE((BUILTIN_TYPE), ZK_I8, ZK_I64))
+#define IS_INTEGER(BUILTIN_TYPE) (RANGE((BUILTIN_TYPE), ZK_U8, ZK_CI64))
+#define IS_SIGNED_INTEGER(BUILTIN_TYPE) ( \
+		RANGE((BUILTIN_TYPE), ZK_I8, ZK_I64) || \
+		RANGE((BUILTIN_TYPE), ZK_CI8, ZK_CI64))
 
+struct zk_type *deref_type(struct zk_type *t);
+struct zk_type *dup_type(struct zk_type *t);
 struct zk_ident *find_ident(struct zk_scope *scope, const struct str *name);
 struct zk_ident *find_struct_member(struct zk_struct_type *type, const struct str *name);
+struct zk_type *monomorphize(struct zk_type *instance, struct zk_type *t);
+struct zk_arr_type *monomorphize_arr(struct zk_arr_type *instance,
+		struct zk_type *t);
+struct zk_struct_type *monomorphize_struct(struct zk_struct_type *instance,
+		struct zk_type *t);
+struct zk_type *open_type(struct zk_type *type);
 
 #endif
