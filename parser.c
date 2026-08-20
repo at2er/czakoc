@@ -81,6 +81,7 @@ static struct zk_top_stmt *parse_trait_def(struct parser *p, struct zk_ident *id
 static struct zk_type *parse_type(struct parser *p, struct zk_type *typ);
 static struct zk_top_stmt *parse_type_def(struct parser *p, struct zk_ident *id);
 static struct zk_type *parse_type_from_ident(struct parser *p, struct zk_type *typ);
+static struct zk_type *parse_union_type(struct parser *p, struct zk_type *typ);
 static struct zk_val *parse_val(struct parser *p);
 
 static const char *comments[] = { "--", NULL };
@@ -103,6 +104,7 @@ static const char *tokens[] = {
 	[TOK_STRUCT] = "struct",
 	[TOK_TRAIT] = "trait",
 	[TOK_TYPE] = "type",
+	[TOK_UNION] = "union",
 
 	[TOK_U8] = "u8", [TOK_U16] = "u16", [TOK_U32] = "u32", [TOK_U64] = "u64",
 	[TOK_I8] = "i8", [TOK_I16] = "i16", [TOK_I32] = "i32", [TOK_I64] = "i64",
@@ -980,6 +982,10 @@ again:
 		builtin = ZK_STRUCT;
 		parse_struct_type(p, typ);
 		break;
+	case TOK_UNION:
+		builtin = ZK_UNION;
+		parse_union_type(p, typ);
+		break;
 	case TOK_U8: builtin = ZK_U8; break;
 	case TOK_U16: builtin = ZK_U16; break;
 	case TOK_U32: builtin = ZK_U32; break;
@@ -1028,9 +1034,13 @@ parse_type_def(struct parser *p, struct zk_ident *id)
 		break;
 	case ZK_STRUCT:
 		stmt->k = ZK_STRUCT_DEF;
+	set_union:
 		stmt->u.struct_def = id;
 		id->type.u.struct_type.id = id;
 		break;
+	case ZK_UNION:
+		stmt->k = ZK_UNION_DEF;
+		goto set_union;
 	case ZK_TYPE_REF:
 		stmt->k = ZK_TYPE_ALIAS_STMT;
 		break;
@@ -1103,6 +1113,15 @@ parse_type_from_ident(struct parser *p, struct zk_type *typ)
 
 	typ->builtin = ZK_GENERIC_INSTANCE_TYPE;
 	typ->u.generic_instance_type = instance;
+	return typ;
+}
+
+struct zk_type *
+parse_union_type(struct parser *p, struct zk_type *typ)
+{
+	if (!parse_struct_type(p, typ))
+		return NULL;
+	typ->builtin = ZK_UNION;
 	return typ;
 }
 

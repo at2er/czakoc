@@ -86,6 +86,7 @@ analyze_brace_init_type(struct semantics_ctx *ctx,
 	case ZK_ARR:
 		return analyze_arr_brace_init_type(ctx, brace_init);
 	case ZK_STRUCT:
+	case ZK_UNION:
 		return analyze_struct_brace_init_type(ctx, brace_init);
 	default:
 		return NULL;
@@ -204,10 +205,12 @@ analyze_struct_brace_init_type(struct semantics_ctx *ctx,
 {
 	struct zk_brace_init_member *member;
 	struct zk_ident *struct_member;
-	struct zk_struct_type *struct_type = &ctx->expect->u.struct_type;
+	struct zk_struct_type *struct_type;
 	struct zk_type *t, *expect;
 
 	ctx->expect = expect = open_type(ctx->expect);
+	brace_init->type = ctx->expect;
+	struct_type = &ctx->expect->u.struct_type;
 
 	for (int i = 0; i < brace_init->members.n; i++) {
 		member = &brace_init->members.e[i];

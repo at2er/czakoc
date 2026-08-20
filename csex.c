@@ -22,6 +22,7 @@ static void def_generic_struct(struct codegen *cg,
 static void def_impl(struct codegen *cg, struct zk_impl_stmt *impl);
 static void def_impl_body(struct codegen *cg, struct zk_impl_stmt *impl);
 static void def_struct(struct codegen *cg, struct zk_ident *structure);
+static void def_union(struct codegen *cg, struct zk_ident *structure);
 static void put_address_of_expr(struct codegen *cg, struct zk_address_of_expr *addrof);
 static void put_arr_type(struct codegen *cg, struct zk_arr_type *arr_type);
 static void put_binary_expr(struct codegen *cg, struct zk_binary_expr *expr);
@@ -38,6 +39,7 @@ static void put_struct_body(struct codegen *cg, struct zk_struct_type *struct_ty
 static void put_struct_type(struct codegen *cg, struct zk_struct_type *struct_type);
 static void put_type(struct codegen *cg, struct zk_type *type);
 static void put_type_ident(struct codegen *cg, struct zk_type *type);
+static void put_union_body(struct codegen *cg, struct zk_ident *structure);
 static void put_val(struct codegen *cg, struct zk_val *val);
 
 static const char *src_file_head =
@@ -212,6 +214,7 @@ def_generic_struct(struct codegen *cg, struct zk_ident *structure,
 	fputs("__", cg->out);
 	put_type_ident(cg, instance->t);
 	put_struct_body(cg, st);
+	fputc(';', cg->out);
 }
 
 void
@@ -259,6 +262,16 @@ def_struct(struct codegen *cg, struct zk_ident *structure)
 	fputs("struct ", cg->out);
 	put_ident(cg, structure);
 	put_struct_body(cg, st);
+	fputc(';', cg->out);
+}
+
+void
+def_union(struct codegen *cg, struct zk_ident *structure)
+{
+	fputs("struct ", cg->out);
+	put_ident(cg, structure);
+	put_union_body(cg, structure);
+	fputc(';', cg->out);
 }
 
 void
@@ -326,6 +339,8 @@ put_brace_init(struct codegen *cg, struct zk_brace_init *brace_init)
 			fputs("] = ", cg->out);
 			break;
 		case ZK_BRACE_INIT_BY_IDENT:
+			if (brace_init->type->builtin == ZK_UNION)
+				fputs(".u", cg->out);
 			fputc('.', cg->out);
 			fputs(member->idx.ident, cg->out);
 			fputs(" = ", cg->out);
@@ -488,7 +503,7 @@ put_struct_body(struct codegen *cg, struct zk_struct_type *struct_type)
 	}
 	cg->blk_lv--;
 	put_indent(cg);
-	fputs("};", cg->out);
+	fputs("}", cg->out);
 }
 
 void
@@ -514,6 +529,7 @@ put_type(struct codegen *cg, struct zk_type *type)
 		fputc('*', cg->out);
 		break;
 	case ZK_STRUCT:
+	case ZK_UNION:
 		put_struct_type(cg, &type->u.struct_type);
 		break;
 	case ZK_GENERIC_INSTANCE_TYPE:
@@ -532,6 +548,10 @@ put_type_ident(struct codegen *cg, struct zk_type *type)
 {
 	type = deref_type(type);
 	switch (type->builtin) {
+	case ZK_ENUM:
+		fputs("enum__", cg->out);
+		put_ident(cg, type->u.enum_type.id);
+		break;
 	case ZK_ARR:
 		fputs("arr__", cg->out);
 		put_type_ident(cg, type->u.arr_type.type);
@@ -541,6 +561,7 @@ put_type_ident(struct codegen *cg, struct zk_type *type)
 		put_type_ident(cg, type->u.type);
 		break;
 	case ZK_STRUCT:
+	case ZK_UNION:
 		fputs("struct__", cg->out);
 		put_ident(cg, type->u.struct_type.id);
 		break;
@@ -548,6 +569,40 @@ put_type_ident(struct codegen *cg, struct zk_type *type)
 		fputs(type2ctype[type->builtin], cg->out);
 		break;
 	}
+}
+
+void
+put_union_body(struct codegen *cg, struct zk_ident *structure)
+{
+	struct zk_struct_type *st = &structure->type.u.struct_type;
+
+	fputs(" {\n", cg->out);
+
+	cg->blk_lv++;
+	put_indent(cg);
+	fputs("struct", cg->out);
+	put_struct_body(cg, st);
+	fputs(" u;\n", cg->out);
+	put_indent(cg);
+	fputs("enum {\n", cg->out);
+
+	cg->blk_lv++;
+	for (int i = 0; i < st->members.n; i++) {
+		if (i)
+			fputs(",\n", cg->out);
+		put_indent(cg);
+		put_ident(cg, structure);
+		fputs("__", cg->out);
+		put_ident(cg, st->members.e[i]);
+	}
+	fputs("\n", cg->out);
+	cg->blk_lv--;
+	put_indent(cg);
+	fputs("} k;\n", cg->out);
+
+	cg->blk_lv--;
+	put_indent(cg);
+	fputs("}", cg->out);
 }
 
 void
@@ -592,6 +647,9 @@ codegen(struct codegen *cg, FILE *out)
 			break;
 		case ZK_STRUCT_DEF:
 			def_struct(cg, stmt->u.struct_def);
+			break;
+		case ZK_UNION_DEF:
+			def_union(cg, stmt->u.struct_def);
 			break;
 		default:
 			continue;

@@ -56,7 +56,8 @@ struct zk_top_stmt {
 		ZK_IMPL_STMT,
 		ZK_STRUCT_DEF,
 		ZK_TRAIT_DEF,
-		ZK_TYPE_ALIAS_STMT
+		ZK_TYPE_ALIAS_STMT,
+		ZK_UNION_DEF
 	} k;
 	union {
 		struct zk_ident *enum_def;
