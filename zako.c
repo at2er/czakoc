@@ -37,6 +37,18 @@ dup_type(struct zk_type *t)
 }
 
 struct zk_ident *
+find_enum_member(struct zk_enum_type *type, const struct str *name)
+{
+	for (int i = 0; i < type->members.n; i++) {
+		if (name->len != strlen(type->members.e[i]->id->name))
+			continue;
+		if (strncmp(name->s, type->members.e[i]->id->name, name->len) == 0)
+			return type->members.e[i]->id;
+	}
+	return NULL;
+}
+
+struct zk_ident *
 find_ident(struct zk_scope *scope, const struct str *name)
 {
 	struct zk_ident *id;

@@ -111,11 +111,8 @@ struct zk_type *
 analyze_dot_expr_type(struct semantics_ctx *ctx, struct zk_expr *expr)
 {
 	struct zk_binary_expr *binary = &expr->u.binary;
-	struct zk_fn_call *fn_call = NULL;
-	struct zk_ident *lhsid, *id;
-	struct zk_type *lhst, *t, *expect;
-	struct zk_struct_type *struct_type;
-	char *name = NULL;
+	struct zk_type *expect, *lhst;
+	struct zk_ident *lhsid;
 
 	ctx->expect = expect = open_type(ctx->expect);
 	if (binary->lhs->k == ZK_UNANALYZED_IDENT_VAL) {
@@ -131,54 +128,54 @@ analyze_dot_expr_type(struct semantics_ctx *ctx, struct zk_expr *expr)
 	lhst = open_type(lhst);
 	if (!binary->rhs)
 		return NULL;
+	if (lhsid->k == ZK_TYPE_IDENT) {
+		ctx->expect = expect;
+		return analyze_enum_dot_expr_type(ctx, binary,
+				lhsid,
+				&lhst->u.enum_type);
+	}
 	if (lhsid->k != ZK_IDENT)
 		return NULL;
 	if (lhst->builtin == ZK_PTR)
 		lhst = lhst->u.type;
 	lhst = open_type(lhst);
+
+	ctx->expect = expect;
+
 	switch (lhst->builtin) {
 	case ZK_STRUCT:
-		struct_type = &lhst->u.struct_type;
-		break;
+		return analyze_struct_dot_expr_type(ctx, binary,
+				lhsid,
+				&lhst->u.struct_type);
 	default:
 		return NULL;
 	}
+
+}
+
+struct zk_type *
+analyze_enum_dot_expr_type(struct semantics_ctx *ctx,
+		struct zk_binary_expr *binary,
+		struct zk_ident *lhsid,
+		struct zk_enum_type *et)
+{
+	struct zk_ident *id;
+	char *name;
+	struct zk_type *t;
 
 	if (binary->rhs->k == ZK_UNANALYZED_IDENT_VAL) {
 		name = binary->rhs->u.unanalyzed_id;
 		binary->rhs->k = ZK_IDENT_VAL;
 	} else if (binary->rhs->k == ZK_IDENT_VAL) {
 		name = binary->rhs->u.id->name;
-	} else if (binary->rhs->k == ZK_EXPR_VAL) {
-		if (binary->rhs->u.expr->k != ZK_FN_CALL_EXPR)
-			return NULL;
-		fn_call = &binary->rhs->u.expr->u.fn_call;
-		name = fn_call->unanalyzed_id;
-		fn_call->unanalyzed_id = NULL;
-	} else {
-		return NULL;
 	}
 
-	id = find_struct_member(struct_type, &STR(name, strlen(name)));
+	id = find_enum_member(et, &STR(name, strlen(name)));
 	if (!id)
 		return NULL;
-	t = open_type(&id->type);
+	binary->rhs->u.id = id;
+	t = open_type(&et->id->type);
 
-	if (fn_call) {
-		fn_call->fn = id;
-		darr_expand(&fn_call->args);
-		memmove(fn_call->args.e + 1, fn_call->args.e,
-				sizeof(*fn_call->args.e) * (fn_call->args.n - 1));
-		fn_call->args.e[0] = ecalloc(1, sizeof(struct zk_expr));
-		fn_call->args.e[0]->k = ZK_ADDRESS_OF_EXPR;
-		fn_call->args.e[0]->u.address_of.id = lhsid;
-		fn_call->args.e[0]->u.address_of.type.builtin = ZK_PTR;
-		fn_call->args.e[0]->u.address_of.type.u.type = &id->type;
-	} else {
-		binary->rhs->u.id = id;
-	}
-
-	ctx->expect = expect;
 	if (check_type(ctx, t))
 		return NULL;
 
@@ -230,6 +227,57 @@ analyze_struct_brace_init_type(struct semantics_ctx *ctx,
 			return NULL;
 	}
 	return expect;
+}
+
+struct zk_type *
+analyze_struct_dot_expr_type(struct semantics_ctx *ctx,
+		struct zk_binary_expr *binary,
+		struct zk_ident *lhsid,
+		struct zk_struct_type *struct_type)
+{
+	struct zk_fn_call *fn_call;
+	struct zk_ident *id;
+	char *name;
+	struct zk_type *t;
+
+	if (binary->rhs->k == ZK_UNANALYZED_IDENT_VAL) {
+		name = binary->rhs->u.unanalyzed_id;
+		binary->rhs->k = ZK_IDENT_VAL;
+	} else if (binary->rhs->k == ZK_IDENT_VAL) {
+		name = binary->rhs->u.id->name;
+	} else if (binary->rhs->k == ZK_EXPR_VAL) {
+		if (binary->rhs->u.expr->k != ZK_FN_CALL_EXPR)
+			return NULL;
+		fn_call = &binary->rhs->u.expr->u.fn_call;
+		name = fn_call->unanalyzed_id;
+		fn_call->unanalyzed_id = NULL;
+	} else {
+		return NULL;
+	}
+
+	id = find_struct_member(struct_type, &STR(name, strlen(name)));
+	if (!id)
+		return NULL;
+	t = open_type(&id->type);
+
+	if (fn_call) {
+		fn_call->fn = id;
+		darr_expand(&fn_call->args);
+		memmove(fn_call->args.e + 1, fn_call->args.e,
+				sizeof(*fn_call->args.e) * (fn_call->args.n - 1));
+		fn_call->args.e[0] = ecalloc(1, sizeof(struct zk_expr));
+		fn_call->args.e[0]->k = ZK_ADDRESS_OF_EXPR;
+		fn_call->args.e[0]->u.address_of.id = lhsid;
+		fn_call->args.e[0]->u.address_of.type.builtin = ZK_PTR;
+		fn_call->args.e[0]->u.address_of.type.u.type = &id->type;
+	} else {
+		binary->rhs->u.id = id;
+	}
+
+	if (check_type(ctx, t))
+		return NULL;
+
+	return t;
 }
 
 int

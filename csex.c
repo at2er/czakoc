@@ -14,6 +14,7 @@ static void dec_ident(struct codegen *cg, struct zk_ident *id);
 static void dec_impl(struct codegen *cg, struct zk_impl_stmt *impl);
 static void dec_impl_body(struct codegen *cg, struct zk_impl_stmt *impl);
 static void def(struct codegen *cg, struct zk_top_stmt *stmt);
+static void def_enum(struct codegen *cg, struct zk_ident *enumeration);
 static void def_fn(struct codegen *cg, struct zk_fn_def *fn);
 static void def_generic_struct(struct codegen *cg,
 		struct zk_ident *structure,
@@ -27,6 +28,8 @@ static void put_binary_expr(struct codegen *cg, struct zk_binary_expr *expr);
 static void put_blk(struct codegen *cg, zk_block_t *blk);
 static void put_brace_init(struct codegen *cg, struct zk_brace_init *brace_init);
 static void put_dot_expr(struct codegen *cg, struct zk_binary_expr *expr);
+static void put_enum_body(struct codegen *cg, struct zk_enum_type *et);
+static void put_enum_type(struct codegen *cg, struct zk_enum_type *et);
 static void put_expr(struct codegen *cg, struct zk_expr *expr);
 static void put_ident(struct codegen *cg, struct zk_ident *id);
 static void put_indent(struct codegen *cg);
@@ -174,6 +177,15 @@ def(struct codegen *cg, struct zk_top_stmt *stmt)
 	default:
 		return;
 	}
+}
+
+void
+def_enum(struct codegen *cg, struct zk_ident *enumeration)
+{
+	struct zk_enum_type *et = &enumeration->type.u.enum_type;
+	fputs("enum ", cg->out);
+	put_ident(cg, enumeration);
+	put_enum_body(cg, et);
 }
 
 void
@@ -333,6 +345,13 @@ put_dot_expr(struct codegen *cg, struct zk_binary_expr *expr)
 	struct zk_type *lhst = open_type(&lhsid->type), *orig_generic_instance;
 
 	assert(expr->lhs->k == ZK_IDENT_VAL);
+
+	if (lhst->builtin == ZK_ENUM) {
+		assert(expr->rhs->k == ZK_IDENT_VAL);
+		put_ident(cg, expr->rhs->u.id);
+		return;
+	}
+
 	assert(lhst->builtin == ZK_STRUCT ||
 			lhst->builtin == ZK_PTR);
 	if (expr->rhs->k == ZK_IDENT_VAL) {
@@ -353,6 +372,31 @@ put_dot_expr(struct codegen *cg, struct zk_binary_expr *expr)
 	} else {
 		die("put_dot_expr()\n");
 	}
+}
+
+void
+put_enum_body(struct codegen *cg, struct zk_enum_type *et)
+{
+	fputs(" {\n", cg->out);
+
+	cg->blk_lv++;
+	for (int i = 0; i < et->members.n; i++) {
+		put_indent(cg);
+		put_ident(cg, et->members.e[i]->id);
+		fputs(" = ", cg->out);
+		put_expr(cg, et->members.e[i]->val);
+		fputs(",\n", cg->out);
+	}
+	cg->blk_lv--;
+	put_indent(cg);
+	fputs("};", cg->out);
+}
+
+void
+put_enum_type(struct codegen *cg, struct zk_enum_type *et)
+{
+	fputs("enum ", cg->out);
+	put_ident(cg, et->id);
 }
 
 void
@@ -462,6 +506,9 @@ put_type(struct codegen *cg, struct zk_type *type)
 	case ZK_ARR:
 		put_arr_type(cg, &type->u.arr_type);
 		break;
+	case ZK_ENUM:
+		put_enum_type(cg, &type->u.enum_type);
+		break;
 	case ZK_PTR:
 		put_type(cg, type->u.type);
 		fputc('*', cg->out);
@@ -539,10 +586,17 @@ codegen(struct codegen *cg, FILE *out)
 
 	for (int i = 0; i < cg->stmts.n; i++) {
 		stmt = cg->stmts.e[i];
-		if (stmt->k == ZK_STRUCT_DEF) {
+		switch (stmt->k) {
+		case ZK_ENUM_DEF:
+			def_enum(cg, stmt->u.enum_def);
+			break;
+		case ZK_STRUCT_DEF:
 			def_struct(cg, stmt->u.struct_def);
-			fputc('\n', out);
+			break;
+		default:
+			continue;
 		}
+		fputc('\n', out);
 	}
 
 	for (int i = 0; i < cg->stmts.n; i++)
@@ -552,6 +606,23 @@ codegen(struct codegen *cg, FILE *out)
 		def(cg, cg->stmts.e[i]);
 
 	fputc('\n', out);
+}
+
+char *
+codegen_get_enum_realname(const char *prefix,
+		const char *enumeration,
+		const char *name)
+{
+	struct str s;
+	str_empty(&s);
+	if (prefix) {
+		estr_append_cstr(&s, prefix);
+		estr_append_cstr(&s, "__");
+	}
+	estr_append_cstr(&s, enumeration);
+	estr_append_cstr(&s, "__");
+	estr_append_cstr(&s, name);
+	return s.s;
 }
 
 char *

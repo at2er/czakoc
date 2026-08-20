@@ -45,6 +45,7 @@ struct parser {
 	enum { IN_TOP, IN_TRAIT_DEF, IN_IMPL_DEF } where;
 };
 
+static void complete_enum_type(struct parser *p, struct zk_enum_type *et);
 static struct zk_scope *enter_scope(struct parser *p);
 static void exit_scope(struct parser *p);
 static enum OPERATOR get_binary_op(enum TOKEN tok);
@@ -61,6 +62,9 @@ static struct zk_brace_init_member *parse_brace_init_member(struct parser *p,
 static struct zk_brace_init_member *parse_brace_init_member_idx(struct parser *p,
 		struct zk_brace_init_member *member,
 		unsigned int idx);
+static struct zk_enum_member *parse_enum_member(struct parser *p,
+		struct zk_enum_type *et);
+static struct zk_type *parse_enum_type(struct parser *p, struct zk_type *typ);
 static struct zk_stmt *parse_expr_stmt(struct parser *p);
 static struct zk_expr *parse_fn_call(struct parser *p);
 static struct zk_top_stmt *parse_fn_def(struct parser *p, struct zk_ident *id);
@@ -159,6 +163,17 @@ static int op_bind_power[] = {
 
 	[ZK_DOT] = 9178
 };
+
+void
+complete_enum_type(struct parser *p, struct zk_enum_type *et)
+{
+	for (int i = 0; i < et->members.n; i++) {
+		et->members.e[i]->id->realname = codegen_get_enum_realname(
+				p->name_prefix,
+				et->id->name,
+				et->members.e[i]->id->name);
+	}
+}
 
 struct zk_scope *
 enter_scope(struct parser *p)
@@ -406,6 +421,77 @@ parse_brace_init_member_idx(struct parser *p,
 	next(p);
 	expect(p, TOK_ASSIGN);
 	return member;
+}
+
+struct zk_enum_member *
+parse_enum_member(struct parser *p, struct zk_enum_type *et)
+{
+	struct zk_enum_member *member;
+	next(p);
+	member = ecalloc(1, sizeof(*member));
+	member->id = ecalloc(1, sizeof(*member));
+	member->id->k = ZK_IDENT;
+	member->id->name = duptok(p);
+	member->id->realname = member->id->name;
+	member->id->type.builtin = et->base;
+	next(p);
+	if (p->tok.type == TOK_ASSIGN) {
+		member->val = parse_binary_expr(p);
+	} else {
+		peek(p);
+		member->val = ecalloc(1, sizeof(*member->val));
+		member->val->k = ZK_BINARY_EXPR;
+		member->val->u.binary.lhs =
+				ecalloc(1, sizeof(*member->val->u.binary.lhs));
+		member->val->u.binary.lhs->k = ZK_INT_VAL;
+		member->val->u.binary.lhs->u.i.i = et->members.n;
+		member->val->u.binary.lhs->u.i.type.builtin = et->base;
+		member->val->u.binary.op = ZK_OP_COUNT;
+	}
+	return member;
+}
+
+struct zk_type *
+parse_enum_type(struct parser *p, struct zk_type *typ)
+{
+	struct zk_enum_type *et = &typ->u.enum_type;
+	struct zk_enum_member *member;
+
+	next(p);
+	switch (p->tok.type) {
+	case TOK_I8: et->base = ZK_I8; break;
+	case TOK_I16: et->base = ZK_I16; break;
+	case TOK_I32: et->base = ZK_I32; break;
+	case TOK_I64: et->base = ZK_I64; break;
+	case TOK_U8: et->base = ZK_U8; break;
+	case TOK_U16: et->base = ZK_U16; break;
+	case TOK_U32: et->base = ZK_U32; break;
+	case TOK_U64: et->base = ZK_U64; break;
+	default:
+		unexpected(&p->tok);
+		break;
+	}
+
+	next(p);
+	expect(p, TOK_LBRACE);
+	next(p);
+	darr_init(&et->members);
+	while (p->tok.type != TOK_RBRACE) {
+		switch (p->tok.type) {
+		case TOK_EOL:
+			break;
+		case TOK_IDENT:
+			peek(p);
+			member = parse_enum_member(p, et);
+			darr_append(&et->members, member);
+			break;
+		default:
+			unexpected(&p->tok);
+			break;
+		}
+		next(p);
+	}
+	return typ;
 }
 
 struct zk_stmt *
@@ -764,13 +850,16 @@ parse_struct_type(struct parser *p, struct zk_type *typ)
 	while (p->tok.type != TOK_RBRACE) {
 		switch (p->tok.type) {
 		case TOK_EOL:
-			break;;
+			break;
 		case TOK_IDENT:
 			id = ecalloc(1, sizeof(*id));
 			id->k = ZK_IDENT;
 			id->name = id->realname = duptok(p);
 			parse_type(p, &id->type);
 			darr_append(&st->members, id);
+			break;
+		default:
+			unexpected(&p->tok);
 			break;
 		}
 		next(p);
@@ -872,6 +961,10 @@ parse_type(struct parser *p, struct zk_type *typ)
 again:
 	next(p);
 	switch (p->tok.type) {
+	case TOK_ENUM:
+		builtin = ZK_ENUM;
+		parse_enum_type(p, typ);
+		break;
 	case TOK_MUT:
 		typ->mutable = 1;
 		goto again;
@@ -927,6 +1020,12 @@ parse_type_def(struct parser *p, struct zk_ident *id)
 	}
 	parse_type(p, &id->type);
 	switch (id->type.builtin) {
+	case ZK_ENUM:
+		stmt->k = ZK_ENUM_DEF;
+		stmt->u.enum_def = id;
+		id->type.u.enum_type.id = id;
+		complete_enum_type(p, &id->type.u.enum_type);
+		break;
 	case ZK_STRUCT:
 		stmt->k = ZK_STRUCT_DEF;
 		stmt->u.struct_def = id;

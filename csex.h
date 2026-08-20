@@ -18,6 +18,9 @@ struct codegen {
 };
 
 void codegen(struct codegen *cg, FILE *out);
+char *codegen_get_enum_realname(const char *prefix,
+		const char *enumeration,
+		const char *name);
 char *codegen_get_realname(const char *prefix, const char *name);
 
 #endif

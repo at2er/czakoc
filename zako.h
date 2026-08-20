@@ -96,10 +96,25 @@ enum OPERATOR {
 	ZK_OP_COUNT
 };
 
+enum ZK_BUILTIN_TYPE {
+	ZK_U8, ZK_U16, ZK_U32, ZK_U64,
+	ZK_I8, ZK_I16, ZK_I32, ZK_I64,
+
+	ZK_CI8, ZK_CI16, ZK_CI32, ZK_CI64,
+
+	ZK_ARR, ZK_ENUM, ZK_PTR, ZK_STRUCT,
+
+	/* internal types */
+	ZK_ANY_TYPE, ZK_CONST_STR_TYPE,
+	ZK_GENERIC_TYPE, ZK_GENERIC_INSTANCE_TYPE,
+	ZK_SELF_TYPE, ZK_TYPE_REF
+};
+
 #define IS_ASSIGN_EXPR(BINARY_OP) RANGE((BINARY_OP), ZK_ASSIGN, ZK_SUB_ASSIGN)
 
 typedef darr(struct zk_expr*) zk_exprs_t;
 typedef darr(struct zk_generic_instance_type*) zk_generic_instances_t;
+typedef darr(struct zk_enum_member*) zk_enum_members_t;
 typedef darr(struct zk_ident*) zk_idents_t;
 typedef darr(struct zk_type) zk_types_t;
 typedef darr(struct zk_val*) zk_vals_t;
@@ -107,6 +122,17 @@ typedef darr(struct zk_val*) zk_vals_t;
 struct zk_arr_type {
 	struct zk_type *type;
 	unsigned int siz;
+};
+
+struct zk_enum_member {
+	struct zk_ident *id;
+	struct zk_expr *val;
+};
+
+struct zk_enum_type {
+	enum ZK_BUILTIN_TYPE base;
+	struct zk_ident *id;
+	zk_enum_members_t members;
 };
 
 struct zk_generic_instance_type {
@@ -130,22 +156,11 @@ struct zk_struct_type {
 };
 
 struct zk_type {
-	enum ZK_BUILTIN_TYPE {
-		ZK_U8, ZK_U16, ZK_U32, ZK_U64,
-		ZK_I8, ZK_I16, ZK_I32, ZK_I64,
-
-		ZK_CI8, ZK_CI16, ZK_CI32, ZK_CI64,
-
-		ZK_ARR, ZK_PTR, ZK_STRUCT,
-
-		/* internal types */
-		ZK_ANY_TYPE, ZK_CONST_STR_TYPE,
-		ZK_GENERIC_TYPE, ZK_GENERIC_INSTANCE_TYPE,
-		ZK_SELF_TYPE, ZK_TYPE_REF
-	} builtin;
+	enum ZK_BUILTIN_TYPE builtin;
 
 	union {
 		struct zk_arr_type arr_type;
+		struct zk_enum_type enum_type;
 		struct zk_generic_instance_type *generic_instance_type;
 		struct zk_struct_type struct_type;
 		struct zk_type *type;
@@ -277,6 +292,7 @@ struct zk_val {
 
 struct zk_type *deref_type(struct zk_type *t);
 struct zk_type *dup_type(struct zk_type *t);
+struct zk_ident *find_enum_member(struct zk_enum_type *type, const struct str *name);
 struct zk_ident *find_ident(struct zk_scope *scope, const struct str *name);
 struct zk_ident *find_struct_member(struct zk_struct_type *type, const struct str *name);
 struct zk_type *monomorphize(struct zk_type *instance, struct zk_type *t);

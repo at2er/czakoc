@@ -28,10 +28,18 @@ struct zk_type *analyze_brace_init_type(struct semantics_ctx *ctx,
 		struct zk_brace_init *brace_init);
 struct zk_type *analyze_dot_expr_type(struct semantics_ctx *ctx,
 		struct zk_expr *expr);
+struct zk_type *analyze_enum_dot_expr_type(struct semantics_ctx *ctx,
+		struct zk_binary_expr *binary,
+		struct zk_ident *lhsid,
+		struct zk_enum_type *et);
 struct zk_type *analyze_expr_type(struct semantics_ctx *ctx,
 		struct zk_expr *expr);
 struct zk_type *analyze_struct_brace_init_type(struct semantics_ctx *ctx,
 		struct zk_brace_init *brace_init);
+struct zk_type *analyze_struct_dot_expr_type(struct semantics_ctx *ctx,
+		struct zk_binary_expr *binary,
+		struct zk_ident *lhsid,
+		struct zk_struct_type *struct_type);
 int analyze_trait_impl(struct zk_impl_stmt *impl);
 enum ZK_BUILTIN_TYPE analyze_cint_type(uint64_t i);
 struct zk_type *analyze_val_type(struct semantics_ctx *ctx, struct zk_val *val);
